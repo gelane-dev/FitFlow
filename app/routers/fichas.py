@@ -5,7 +5,7 @@ from datetime import datetime
 
 from ..database import get_db
 from ..core.seguranca import verificar_professor, verificar_aluno
-from ..schemas.ficha import FichaCriar, ItemFichaCriar, AtualizarFicha, FichaResposta, ItemFichaResposta, AtualizarItemFicha, ExecucaoHistorico, HistoricoResposta
+from ..schemas.ficha import FichaCriar, ItemFichaCriar, AtualizarFicha, FichaResposta, ItemFichaResposta, AtualizarItemFicha, ExecucaoHistorico, HistoricoResposta, FichaCompletaResposta
 from ..models import Aluno, Ficha, ItemFicha, Exercicio, HistoricoExecucao, Treino
 
 router = APIRouter()
