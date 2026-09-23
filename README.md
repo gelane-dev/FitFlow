@@ -1,4 +1,4 @@
-# 🏋️ App de Academia — Treino & Acompanhamento
+# 🏋️ FitFlow — Treino & Acompanhamento
 
 Aplicativo para gestão de treinos entre professores e alunos de academia, com montagem de fichas, acompanhamento de execução e evolução física.
 
