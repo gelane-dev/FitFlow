@@ -1,5 +1,4 @@
-from pydantic import BaseModel
-from typing import Optional
+from pydantic import BaseModel, ConfigDict
 
 class ExercicioCriar(BaseModel):
     nome: str
@@ -18,3 +17,14 @@ class ExercicioResposta(BaseModel):
     grupo_muscular: str
     imagem: str | None = None
     video: str | None = None
+
+    model_config = ConfigDict(
+        from_attributes=True
+    )
+
+class ExerciciosListaResposta(BaseModel):
+    itens: list[ExercicioResposta]
+    pagina: int
+    limite: int
+    total: int
+    total_paginas: int

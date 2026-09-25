@@ -1,13 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, File, UploadFile
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, Query
+from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..schemas.exercicio import ExercicioCriar, ExercicioAtualizar, ExercicioResposta
+from ..schemas.exercicio import ExercicioCriar, ExercicioAtualizar, ExercicioResposta, ExerciciosListaResposta
 from ..models import Exercicio
 from ..core.seguranca import verificar_professor
 from ..services.cloudinary import upload_imagem, upload_video, deletar_video, deletar_imagem
 from pathlib import Path
+import math
 
 router = APIRouter()
 
@@ -28,14 +29,32 @@ def cria_exercicio(dados: ExercicioCriar, professor=Depends(verificar_professor)
     return exercicio
 
 
-@router.get("/exercicios", response_model=list[ExercicioResposta])
-def listar_exercicios(db: Session = Depends(get_db)):
+@router.get("/exercicios", response_model=ExerciciosListaResposta)
+def listar_exercicios(pagina: int = Query(1, ge=1), limite: int = Query(50, ge=1, le=100), grupo_muscular: str | None = None, busca: str | None = None, db: Session = Depends(get_db)):
+   
+    offset = (pagina - 1) * limite
 
-    exercicios = db.scalars(
-        select(Exercicio).where(Exercicio.ativo.is_(True))).all()
+    consulta = select(Exercicio).where(Exercicio.ativo.is_(True))
+    
+    if busca: consulta = consulta.where(Exercicio.nome.ilike(f"%{busca}%"))
+    if grupo_muscular: consulta = consulta.where(Exercicio.grupo_muscular.ilike(f"%{grupo_muscular}%"))
 
-    return exercicios
+    total = db.scalar(
+    select(func.count()).select_from(consulta.subquery()))
 
+    total_paginas = math.ceil(total / limite)
+    
+    consulta = consulta.offset(offset).limit(limite)
+
+    exercicios = db.scalars(consulta).all()
+
+    return ExerciciosListaResposta(
+    itens=exercicios,
+    pagina=pagina,
+    limite=limite,
+    total=total,
+    total_paginas=total_paginas
+    )
 
 @router.get("/exercicios/{id}", response_model=ExercicioResposta)
 def lista_exercicio(id: int, professor=Depends(verificar_professor), db: Session = Depends(get_db)):
