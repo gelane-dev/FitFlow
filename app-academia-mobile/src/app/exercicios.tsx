@@ -95,6 +95,14 @@ export default function Exercicios() {
                 },
               })
             }
+            onEditar={() =>
+              router.push({
+                pathname: '/exercicios/[id]/editar',
+                params: {
+                  id: item.id.toString(),
+                },
+              })
+            }
           />
         )}
         contentContainerStyle={styles.lista}
