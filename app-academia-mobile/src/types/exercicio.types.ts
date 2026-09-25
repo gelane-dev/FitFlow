@@ -18,3 +18,11 @@ export interface ExercicioAtualizar {
   descricao: string;
   grupo_muscular: string;
 }
+
+export interface ExerciciosListaResposta {
+  itens: Exercicio[];
+  pagina: number;
+  limite: number;
+  total: number;
+  total_paginas: number;
+}
