@@ -70,6 +70,15 @@ export default function Exercicios() {
         <Text style={styles.informacao}>
           {total} exercícios • {limite} por página
         </Text>
+
+        <TouchableOpacity
+          style={styles.botaoNovo}
+          onPress={() => router.push('/exercicios/novo')}
+        >
+          <Text style={styles.textoBotaoNovo}>
+            + NOVO EXERCÍCIO
+          </Text>
+        </TouchableOpacity>
       </View>
 
       <FlatList
@@ -161,6 +170,21 @@ const styles = StyleSheet.create({
     color: '#777777',
     fontSize: 12,
     marginTop: 8,
+  },
+
+  botaoNovo: {
+    backgroundColor: '#FECF2B',
+    paddingVertical: 13,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 18,
+  },
+
+  textoBotaoNovo: {
+    color: '#111111',
+    fontSize: 13,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
   },
 
   lista: {
