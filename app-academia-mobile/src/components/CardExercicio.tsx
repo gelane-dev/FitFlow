@@ -9,20 +9,22 @@ import { Exercicio } from '@/types/exercicio.types';
 
 interface CardExercicioProps {
   exercicio: Exercicio;
-  onPress?: () => void;
+  onPress: () => void;
+  onEditar: () => void;
 }
 
 export function CardExercicio({
   exercicio,
   onPress,
+  onEditar,
 }: CardExercicioProps) {
   return (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={onPress}
-      activeOpacity={0.8}
-    >
-      <View style={styles.conteudo}>
+    <View style={styles.card}>
+      <TouchableOpacity
+        style={styles.areaPrincipal}
+        onPress={onPress}
+        activeOpacity={0.8}
+      >
         <Text style={styles.nome}>
           {exercicio.nome}
         </Text>
@@ -37,38 +39,38 @@ export function CardExercicio({
         >
           {exercicio.descricao}
         </Text>
-      </View>
+      </TouchableOpacity>
 
-      <Text style={styles.seta}>
-        ›
-      </Text>
-    </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.botaoEditar}
+        onPress={onEditar}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.textoEditar}>
+          EDITAR
+        </Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    width: '100%',
-    minHeight: 120,
-    backgroundColor: 'rgba(20, 20, 20, 0.9)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    borderRadius: 10,
-    padding: 18,
+    backgroundColor: '#1A1A1A',
+    borderRadius: 12,
     marginBottom: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
+    overflow: 'hidden',
   },
 
-  conteudo: {
-    flex: 1,
+  areaPrincipal: {
+    padding: 18,
   },
 
   nome: {
     color: '#FFFFFF',
     fontSize: 17,
     fontWeight: 'bold',
-    marginBottom: 5,
+    marginBottom: 6,
   },
 
   grupoMuscular: {
@@ -84,9 +86,17 @@ const styles = StyleSheet.create({
     lineHeight: 19,
   },
 
-  seta: {
+  botaoEditar: {
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+
+  textoEditar: {
     color: '#FECF2B',
-    fontSize: 28,
-    marginLeft: 10,
+    fontSize: 12,
+    fontWeight: 'bold',
+    letterSpacing: 0.8,
   },
 });
