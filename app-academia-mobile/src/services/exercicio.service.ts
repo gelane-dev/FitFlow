@@ -1,9 +1,21 @@
 import { api } from './api';
 
-import { Exercicio } from '@/types/exercicio.types';
+import {
+  Exercicio,
+  ExerciciosListaResposta,
+} from '@/types/exercicio.types';
 
-export async function buscarExercicios(): Promise<Exercicio[]> {
-  const resposta = await api.get<Exercicio[]>('/exercicios');
+export async function buscarExercicios(
+  paginaSolicitada: number
+): Promise<ExerciciosListaResposta> {
+  const resposta = await api.get<ExerciciosListaResposta>(
+    '/exercicios', 
+    { 
+    params: {
+      pagina: paginaSolicitada,
+    },
+  }
+);
 
   return resposta.data;
 }
