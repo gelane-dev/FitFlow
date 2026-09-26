@@ -13,8 +13,9 @@ def upload_imagem(arquivo):
     resultado = cloudinary.uploader.upload(arquivo.file)
 
     url = resultado["secure_url"]
+    public_id = resultado["public_id"]
 
-    return url
+    return url, public_id
 
 def upload_video(arquivo):
     
