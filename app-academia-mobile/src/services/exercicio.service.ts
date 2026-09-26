@@ -60,3 +60,29 @@ export async function deletarExercicio(
 ): Promise<void> {
   await api.delete(`/exercicios/${id}`);
 }
+
+export async function enviarImagemExercicio(
+  id: number,
+  imagem: {
+    uri: string;
+    name: string;
+    type: string;
+  }
+): Promise<void> {
+  const formulario = new FormData();
+
+  formulario.append(
+    'arquivo',
+    imagem as unknown as Blob
+  );
+
+  await api.put(
+    `/exercicios/${id}/imagem`,
+    formulario,
+    {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    }
+  );
+}
