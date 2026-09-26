@@ -1,17 +1,22 @@
 import axios from 'axios';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { buscarExercicio } from '@/services/exercicio.service';
 import { ErroApi } from '@/types/api.types';
 import { Exercicio } from '@/types/exercicio.types';
 
 export function useExercicio(id: number) {
-  const [exercicio, setExercicio] = useState<Exercicio | null>(null);
-  const [carregando, setCarregando] = useState(true);
-  const [erro, setErro] = useState<string | null>(null);
+  const [exercicio, setExercicio] =
+    useState<Exercicio | null>(null);
 
-  useEffect(() => {
-    async function carregarExercicio() {
+  const [carregando, setCarregando] =
+    useState(true);
+
+  const [erro, setErro] =
+    useState<string | null>(null);
+
+  const carregarExercicio = useCallback(
+    async () => {
       try {
         setCarregando(true);
         setErro(null);
@@ -29,18 +34,24 @@ export function useExercicio(id: number) {
           return;
         }
 
-        setErro('Ocorreu um erro inesperado.');
+        setErro(
+          'Ocorreu um erro inesperado.'
+        );
       } finally {
         setCarregando(false);
       }
-    }
+    },
+    [id]
+  );
 
+  useEffect(() => {
     carregarExercicio();
-  }, [id]);
+  }, [carregarExercicio]);
 
   return {
     exercicio,
     carregando,
     erro,
+    recarregar: carregarExercicio,
   };
 }
