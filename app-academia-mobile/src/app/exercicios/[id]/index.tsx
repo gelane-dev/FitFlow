@@ -8,11 +8,13 @@ import {
   View,
 } from 'react-native';
 
+import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
 
 import { Button } from '@/components/button';
 import { useExercicio } from '@/hooks/useExercicio';
 import { useGerenciarExercicio } from '@/hooks/useGerenciarExercicio';
+import { useImagemExercicio } from '@/hooks/useImagemExercicio';
 
 export default function DetalhesExercicio() {
   const { id } = useLocalSearchParams();
@@ -23,6 +25,7 @@ export default function DetalhesExercicio() {
     exercicio,
     carregando,
     erro,
+    recarregar,
   } = useExercicio(idExercicio);
 
   const {
@@ -30,6 +33,60 @@ export default function DetalhesExercicio() {
     carregando: excluindo,
     erro: erroExclusao,
   } = useGerenciarExercicio();
+
+  const {
+    enviarImagem,
+    carregando: enviandoImagem,
+    erro: erroImagem,
+  } = useImagemExercicio();
+
+  async function selecionarImagem() {
+    const resultado =
+      await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: false,
+        quality: 0.8,
+      });
+
+    if (resultado.canceled) {
+      return;
+    }
+
+    const imagemSelecionada =
+      resultado.assets[0];
+
+    const imagem = {
+      uri: imagemSelecionada.uri,
+      name:
+        imagemSelecionada.fileName ||
+        `exercicio-${idExercicio}.jpg`,
+      type:
+        imagemSelecionada.mimeType ||
+        'image/jpeg',
+    };
+
+    const sucesso = await enviarImagem(
+      idExercicio,
+      imagem
+    );
+
+    if (!sucesso) {
+      Alert.alert(
+        'Erro',
+        erroImagem ||
+          'Não foi possível enviar a imagem.'
+      );
+
+      return;
+    }
+
+    await recarregar();
+
+    Alert.alert(
+      'Imagem atualizada',
+      'A imagem do exercício foi atualizada com sucesso.'
+    );
+  }
 
   function confirmarExclusao() {
     Alert.alert(
@@ -55,7 +112,8 @@ export default function DetalhesExercicio() {
     if (!sucesso) {
       Alert.alert(
         'Erro',
-        erroExclusao || 'Não foi possível excluir o exercício.'
+        erroExclusao ||
+          'Não foi possível excluir o exercício.'
       );
 
       return;
@@ -67,7 +125,8 @@ export default function DetalhesExercicio() {
       [
         {
           text: 'OK',
-          onPress: () => router.replace('/exercicios'),
+          onPress: () =>
+            router.replace('/exercicios'),
         },
       ]
     );
@@ -96,7 +155,8 @@ export default function DetalhesExercicio() {
         </Text>
 
         <Text style={styles.textoErro}>
-          {erro || 'Exercício não encontrado.'}
+          {erro ||
+            'Exercício não encontrado.'}
         </Text>
 
         <View style={styles.botaoVoltar}>
@@ -131,13 +191,30 @@ export default function DetalhesExercicio() {
         {exercicio.grupo_muscular}
       </Text>
 
-      {exercicio.imagem && (
+      {exercicio.imagem ? (
         <Image
           source={{ uri: exercicio.imagem }}
           style={styles.imagem}
           resizeMode="cover"
         />
+      ) : (
+        <View style={styles.semImagem}>
+          <Text style={styles.textoSemImagem}>
+            Nenhuma imagem cadastrada
+          </Text>
+        </View>
       )}
+
+      <Button
+        onPress={selecionarImagem}
+        disabled={enviandoImagem}
+      >
+       {enviandoImagem
+        ? 'ENVIANDO IMAGEM...'
+        : exercicio.imagem
+          ? 'ALTERAR IMAGEM'
+          : 'ADICIONAR IMAGEM'}
+      </Button>
 
       <View style={styles.secao}>
         <Text style={styles.tituloSecao}>
@@ -165,20 +242,27 @@ export default function DetalhesExercicio() {
         <Button
           onPress={() =>
             router.push({
-              pathname: '/exercicios/[id]/editar',
+              pathname:
+                '/exercicios/[id]/editar',
               params: {
                 id: idExercicio.toString(),
               },
             })
           }
-          disabled={excluindo}
+          disabled={
+            excluindo ||
+            enviandoImagem
+          }
         >
           EDITAR EXERCÍCIO
         </Button>
 
         <Button
           onPress={confirmarExclusao}
-          disabled={excluindo}
+          disabled={
+            excluindo ||
+            enviandoImagem
+          }
         >
           {excluindo
             ? 'EXCLUINDO...'
@@ -226,11 +310,27 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 240,
     borderRadius: 12,
-    marginBottom: 30,
+    marginBottom: 15,
     backgroundColor: '#1A1A1A',
   },
 
+  semImagem: {
+    width: '100%',
+    height: 240,
+    borderRadius: 12,
+    marginBottom: 15,
+    backgroundColor: '#1A1A1A',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  textoSemImagem: {
+    color: '#777777',
+    fontSize: 14,
+  },
+
   secao: {
+    marginTop: 30,
     marginBottom: 30,
   },
 
@@ -255,6 +355,7 @@ const styles = StyleSheet.create({
 
   acoes: {
     gap: 12,
+    marginTop: 10,
   },
 
   carregando: {
