@@ -1,5 +1,7 @@
 import axios from 'axios';
 import { useState } from 'react';
+import { Alert } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 
 import { enviarImagemExercicio } from '@/services/exercicio.service';
 import { ErroApi } from '@/types/api.types';
@@ -43,8 +45,59 @@ export function useImagemExercicio() {
     }
   }
 
+  async function selecionarImagem(
+    id: number,
+    aoAtualizar?: () => Promise<void> | void
+  ): Promise<boolean> {
+    const resultado =
+      await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: false,
+        quality: 0.8,
+      });
+
+    if (resultado.canceled) {
+      return false;
+    }
+
+    const imagemSelecionada = resultado.assets[0];
+
+    const imagem = {
+      uri: imagemSelecionada.uri,
+      name:
+        imagemSelecionada.fileName ||
+        `exercicio-${id}.jpg`,
+      type:
+        imagemSelecionada.mimeType ||
+        'image/jpeg',
+    };
+
+    const sucesso = await enviarImagem(id, imagem);
+
+    if (!sucesso) {
+      Alert.alert(
+        'Erro',
+        erro || 'Não foi possível enviar a imagem.'
+      );
+
+      return false;
+    }
+
+    if (aoAtualizar) {
+      await aoAtualizar();
+    }
+
+    Alert.alert(
+      'Imagem atualizada',
+      'A imagem do exercício foi atualizada com sucesso.'
+    );
+
+    return true;
+  }
+
   return {
     enviarImagem,
+    selecionarImagem,
     carregando,
     erro,
   };
