@@ -10,11 +10,28 @@ import {
 
 import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useVideoPlayer, VideoView } from 'expo-video';
 
 import { Button } from '@/components/button';
 import { useExercicio } from '@/hooks/useExercicio';
 import { useGerenciarExercicio } from '@/hooks/useGerenciarExercicio';
 import { useImagemExercicio } from '@/hooks/useImagemExercicio';
+import { useVideoExercicio } from '@/hooks/useVideoExercicio';
+
+function VideoPlayerExercicio({ uri }: { uri: string }) {
+  const player = useVideoPlayer(uri, (p) => {
+    p.loop = true;
+  });
+
+  return (
+    <VideoView
+      style={styles.playerVideo}
+      player={player}
+      contentFit="contain"
+      nativeControls
+    />
+  );
+}
 
 export default function DetalhesExercicio() {
   const { id } = useLocalSearchParams();
@@ -39,6 +56,12 @@ export default function DetalhesExercicio() {
     carregando: enviandoImagem,
     erro: erroImagem,
   } = useImagemExercicio();
+
+  const {
+    enviarVideo,
+    carregando: enviandoVideo,
+    erro: erroVideo,
+  } = useVideoExercicio();
 
   async function selecionarImagem() {
     const resultado =
@@ -74,7 +97,7 @@ export default function DetalhesExercicio() {
       Alert.alert(
         'Erro',
         erroImagem ||
-          'Não foi possível enviar a imagem.'
+        'Não foi possível enviar a imagem.'
       );
 
       return;
@@ -85,6 +108,54 @@ export default function DetalhesExercicio() {
     Alert.alert(
       'Imagem atualizada',
       'A imagem do exercício foi atualizada com sucesso.'
+    );
+  }
+
+  async function selecionarVideo() {
+    const resultado =
+      await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['videos'],
+        allowsEditing: false,
+        quality: 1,
+      });
+
+    if (resultado.canceled) {
+      return;
+    }
+
+    const videoSelecionado =
+      resultado.assets[0];
+
+    const video = {
+      uri: videoSelecionado.uri,
+      name:
+        videoSelecionado.fileName ||
+        `exercicio-${idExercicio}.mp4`,
+      type:
+        videoSelecionado.mimeType ||
+        'video/mp4',
+    };
+
+    const sucesso = await enviarVideo(
+      idExercicio,
+      video
+    );
+
+    if (!sucesso) {
+      Alert.alert(
+        'Erro',
+        erroVideo ||
+        'Não foi possível enviar o vídeo.'
+      );
+
+      return;
+    }
+
+    await recarregar();
+
+    Alert.alert(
+      'Vídeo atualizado',
+      'O vídeo do exercício foi atualizado com sucesso.'
     );
   }
 
@@ -113,7 +184,7 @@ export default function DetalhesExercicio() {
       Alert.alert(
         'Erro',
         erroExclusao ||
-          'Não foi possível excluir o exercício.'
+        'Não foi possível excluir o exercício.'
       );
 
       return;
@@ -207,13 +278,17 @@ export default function DetalhesExercicio() {
 
       <Button
         onPress={selecionarImagem}
-        disabled={enviandoImagem}
+        disabled={
+          enviandoImagem ||
+          enviandoVideo ||
+          excluindo
+        }
       >
-       {enviandoImagem
-        ? 'ENVIANDO IMAGEM...'
-        : exercicio.imagem
-          ? 'ALTERAR IMAGEM'
-          : 'ADICIONAR IMAGEM'}
+        {enviandoImagem
+          ? 'ENVIANDO IMAGEM...'
+          : exercicio.imagem
+            ? 'ALTERAR IMAGEM'
+            : 'ADICIONAR IMAGEM'}
       </Button>
 
       <View style={styles.secao}>
@@ -226,17 +301,36 @@ export default function DetalhesExercicio() {
         </Text>
       </View>
 
-      {exercicio.video && (
-        <View style={styles.secao}>
-          <Text style={styles.tituloSecao}>
-            VÍDEO
-          </Text>
+      <View style={styles.secao}>
+        <Text style={styles.tituloSecao}>
+          VÍDEO
+        </Text>
 
-          <Text style={styles.video}>
-            Vídeo disponível
-          </Text>
-        </View>
-      )}
+        {exercicio.video ? (
+          <VideoPlayerExercicio uri={exercicio.video} />
+        ) : (
+          <View style={styles.semVideo}>
+            <Text style={styles.textoSemVideo}>
+              Nenhum vídeo cadastrado
+            </Text>
+          </View>
+        )}
+
+        <Button
+          onPress={selecionarVideo}
+          disabled={
+            enviandoVideo ||
+            enviandoImagem ||
+            excluindo
+          }
+        >
+          {enviandoVideo
+            ? 'ENVIANDO VÍDEO...'
+            : exercicio.video
+              ? 'ALTERAR VÍDEO'
+              : 'ADICIONAR VÍDEO'}
+        </Button>
+      </View>
 
       <View style={styles.acoes}>
         <Button
@@ -251,7 +345,8 @@ export default function DetalhesExercicio() {
           }
           disabled={
             excluindo ||
-            enviandoImagem
+            enviandoImagem ||
+            enviandoVideo
           }
         >
           EDITAR EXERCÍCIO
@@ -261,7 +356,8 @@ export default function DetalhesExercicio() {
           onPress={confirmarExclusao}
           disabled={
             excluindo ||
-            enviandoImagem
+            enviandoImagem ||
+            enviandoVideo
           }
         >
           {excluindo
@@ -348,8 +444,26 @@ const styles = StyleSheet.create({
     lineHeight: 23,
   },
 
-  video: {
-    color: '#AAAAAA',
+  playerVideo: {
+    width: '100%',
+    height: 220,
+    borderRadius: 12,
+    backgroundColor: '#1A1A1A',
+    marginBottom: 12,
+  },
+
+  semVideo: {
+    width: '100%',
+    height: 120,
+    borderRadius: 12,
+    backgroundColor: '#1A1A1A',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+
+  textoSemVideo: {
+    color: '#777777',
     fontSize: 14,
   },
 
