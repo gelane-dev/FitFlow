@@ -86,3 +86,29 @@ export async function enviarImagemExercicio(
     }
   );
 }
+
+export async function enviarVideoExercicio(
+  id: number,
+  video: {
+    uri: string;
+    name: string;
+    type: string;
+  }
+): Promise<void> {
+  const formulario = new FormData();
+
+  formulario.append(
+    'arquivo',
+    video as unknown as Blob
+  );
+
+  await api.put(
+    `/exercicios/${id}/video`,
+    formulario,
+    {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    }
+  );
+}
