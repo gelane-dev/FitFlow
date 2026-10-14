@@ -6,44 +6,22 @@ import {
   StyleSheet,
   Text,
   View,
-} from 'react-native';
+} from "react-native";
+import { router, useLocalSearchParams } from "expo-router";
 
-import * as ImagePicker from 'expo-image-picker';
-import { router, useLocalSearchParams } from 'expo-router';
-import { useVideoPlayer, VideoView } from 'expo-video';
-
-import { Button } from '@/components/button';
-import { useExercicio } from '@/hooks/useExercicio';
-import { useGerenciarExercicio } from '@/hooks/useGerenciarExercicio';
-import { useImagemExercicio } from '@/hooks/useImagemExercicio';
-import { useVideoExercicio } from '@/hooks/useVideoExercicio';
-
-function VideoPlayerExercicio({ uri }: { uri: string }) {
-  const player = useVideoPlayer(uri, (p) => {
-    p.loop = true;
-  });
-
-  return (
-    <VideoView
-      style={styles.playerVideo}
-      player={player}
-      contentFit="contain"
-      nativeControls
-    />
-  );
-}
+import { Button } from "@/components/button";
+import { SeletorMidiaExercicio } from "@/components/exercicios/SeletorMidiaExercicio";
+import { VideoPlayerExercicio } from "@/components/exercicios/VideoPlayerExercicio";
+import { useExercicio } from "@/hooks/useExercicio";
+import { useGerenciarExercicio } from "@/hooks/useGerenciarExercicio";
+import { useImagemExercicio } from "@/hooks/useImagemExercicio";
+import { useVideoExercicio } from "@/hooks/useVideoExercicio";
 
 export default function DetalhesExercicio() {
-  const { id } = useLocalSearchParams();
-
+  const { id } = useLocalSearchParams<{ id: string }>();
   const idExercicio = Number(id);
 
-  const {
-    exercicio,
-    carregando,
-    erro,
-    recarregar,
-  } = useExercicio(idExercicio);
+  const { exercicio, carregando, erro, recarregar } = useExercicio(idExercicio);
 
   const {
     deletar,
@@ -63,117 +41,21 @@ export default function DetalhesExercicio() {
     erro: erroVideo,
   } = useVideoExercicio();
 
-  async function selecionarImagem() {
-    const resultado =
-      await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsEditing: false,
-        quality: 0.8,
-      });
-
-    if (resultado.canceled) {
-      return;
-    }
-
-    const imagemSelecionada =
-      resultado.assets[0];
-
-    const imagem = {
-      uri: imagemSelecionada.uri,
-      name:
-        imagemSelecionada.fileName ||
-        `exercicio-${idExercicio}.jpg`,
-      type:
-        imagemSelecionada.mimeType ||
-        'image/jpeg',
-    };
-
-    const sucesso = await enviarImagem(
-      idExercicio,
-      imagem
-    );
-
-    if (!sucesso) {
-      Alert.alert(
-        'Erro',
-        erroImagem ||
-        'Não foi possível enviar a imagem.'
-      );
-
-      return;
-    }
-
-    await recarregar();
-
-    Alert.alert(
-      'Imagem atualizada',
-      'A imagem do exercício foi atualizada com sucesso.'
-    );
-  }
-
-  async function selecionarVideo() {
-    const resultado =
-      await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['videos'],
-        allowsEditing: false,
-        quality: 1,
-      });
-
-    if (resultado.canceled) {
-      return;
-    }
-
-    const videoSelecionado =
-      resultado.assets[0];
-
-    const video = {
-      uri: videoSelecionado.uri,
-      name:
-        videoSelecionado.fileName ||
-        `exercicio-${idExercicio}.mp4`,
-      type:
-        videoSelecionado.mimeType ||
-        'video/mp4',
-    };
-
-    const sucesso = await enviarVideo(
-      idExercicio,
-      video
-    );
-
-    if (!sucesso) {
-      Alert.alert(
-        'Erro',
-        erroVideo ||
-        'Não foi possível enviar o vídeo.'
-      );
-
-      return;
-    }
-
-    await recarregar();
-
-    Alert.alert(
-      'Vídeo atualizado',
-      'O vídeo do exercício foi atualizado com sucesso.'
-    );
-  }
-
   function confirmarExclusao() {
     Alert.alert(
-      'Excluir exercício',
-      'Tem certeza que deseja excluir este exercício?',
+      "Excluir exercício",
+      "Tem certeza que deseja excluir este exercício?",
       [
         {
-          text: 'CANCELAR',
-          style: 'cancel',
+          text: "CANCELAR",
+          style: "cancel",
         },
         {
-          text: 'EXCLUIR',
-          style: 'destructive',
+          text: "EXCLUIR",
+          style: "destructive",
           onPress: excluirExercicio,
         },
-      ]
+      ],
     );
   }
 
@@ -182,38 +64,39 @@ export default function DetalhesExercicio() {
 
     if (!sucesso) {
       Alert.alert(
-        'Erro',
-        erroExclusao ||
-        'Não foi possível excluir o exercício.'
+        "Erro",
+        erroExclusao || "Não foi possível excluir o exercício.",
       );
-
       return;
     }
 
-    Alert.alert(
-      'Exercício excluído',
-      'O exercício foi excluído com sucesso.',
-      [
-        {
-          text: 'OK',
-          onPress: () =>
-            router.replace('/exercicios'),
-        },
-      ]
+    Alert.alert("Exercício excluído", "O exercício foi excluído com sucesso.", [
+      {
+        text: "OK",
+        onPress: () => router.replace("/exercicios"),
+      },
+    ]);
+  }
+
+  if (!Number.isFinite(idExercicio) || idExercicio <= 0) {
+    return (
+      <View style={styles.mensagem}>
+        <Text style={styles.tituloErro}>Exercício inválido</Text>
+        <Text style={styles.textoErro}>
+          Não foi possível identificar o exercício solicitado.
+        </Text>
+        <View style={styles.botaoVoltar}>
+          <Button onPress={() => router.back()}>VOLTAR</Button>
+        </View>
+      </View>
     );
   }
 
   if (carregando) {
     return (
       <View style={styles.carregando}>
-        <ActivityIndicator
-          size="large"
-          color="#FECF2B"
-        />
-
-        <Text style={styles.textoCarregando}>
-          Carregando exercício...
-        </Text>
+        <ActivityIndicator size="large" color="#FECF2B" />
+        <Text style={styles.textoCarregando}>Carregando exercício...</Text>
       </View>
     );
   }
@@ -221,25 +104,18 @@ export default function DetalhesExercicio() {
   if (erro || !exercicio) {
     return (
       <View style={styles.mensagem}>
-        <Text style={styles.tituloErro}>
-          Erro ao carregar exercício
-        </Text>
-
+        <Text style={styles.tituloErro}>Erro ao carregar exercício</Text>
         <Text style={styles.textoErro}>
-          {erro ||
-            'Exercício não encontrado.'}
+          {erro || "Exercício não encontrado."}
         </Text>
-
         <View style={styles.botaoVoltar}>
-          <Button
-            onPress={() => router.back()}
-          >
-            VOLTAR
-          </Button>
+          <Button onPress={() => router.back()}>VOLTAR</Button>
         </View>
       </View>
     );
   }
+
+  const bloqueado = excluindo || enviandoImagem || enviandoVideo;
 
   return (
     <ScrollView
@@ -250,119 +126,81 @@ export default function DetalhesExercicio() {
       <Text
         style={styles.voltar}
         onPress={() => router.back()}
+        accessibilityRole="button"
       >
         ‹ Voltar
       </Text>
 
-      <Text style={styles.titulo}>
-        {exercicio.nome}
-      </Text>
-
-      <Text style={styles.grupoMuscular}>
-        {exercicio.grupo_muscular}
-      </Text>
+      <Text style={styles.titulo}>{exercicio.nome}</Text>
+      <Text style={styles.grupoMuscular}>{exercicio.grupo_muscular}</Text>
 
       {exercicio.imagem ? (
         <Image
           source={{ uri: exercicio.imagem }}
           style={styles.imagem}
           resizeMode="cover"
+          accessibilityLabel={`Imagem do exercício ${exercicio.nome}`}
         />
       ) : (
         <View style={styles.semImagem}>
-          <Text style={styles.textoSemImagem}>
-            Nenhuma imagem cadastrada
-          </Text>
+          <Text style={styles.textoSemImagem}>Nenhuma imagem cadastrada</Text>
         </View>
       )}
 
-      <Button
-        onPress={selecionarImagem}
-        disabled={
-          enviandoImagem ||
-          enviandoVideo ||
-          excluindo
-        }
-      >
-        {enviandoImagem
-          ? 'ENVIANDO IMAGEM...'
-          : exercicio.imagem
-            ? 'ALTERAR IMAGEM'
-            : 'ADICIONAR IMAGEM'}
-      </Button>
+      <SeletorMidiaExercicio
+        idExercicio={idExercicio}
+        tipo="imagem"
+        existeMidia={Boolean(exercicio.imagem)}
+        carregando={enviandoImagem}
+        bloqueado={excluindo || enviandoVideo}
+        erro={erroImagem}
+        enviar={enviarImagem}
+        aoEnviarComSucesso={recarregar}
+      />
 
       <View style={styles.secao}>
-        <Text style={styles.tituloSecao}>
-          DESCRIÇÃO
-        </Text>
-
-        <Text style={styles.descricao}>
-          {exercicio.descricao}
-        </Text>
+        <Text style={styles.tituloSecao}>DESCRIÇÃO</Text>
+        <Text style={styles.descricao}>{exercicio.descricao}</Text>
       </View>
 
       <View style={styles.secao}>
-        <Text style={styles.tituloSecao}>
-          VÍDEO
-        </Text>
+        <Text style={styles.tituloSecao}>VÍDEO</Text>
 
         {exercicio.video ? (
           <VideoPlayerExercicio uri={exercicio.video} />
         ) : (
           <View style={styles.semVideo}>
-            <Text style={styles.textoSemVideo}>
-              Nenhum vídeo cadastrado
-            </Text>
+            <Text style={styles.textoSemVideo}>Nenhum vídeo cadastrado</Text>
           </View>
         )}
 
-        <Button
-          onPress={selecionarVideo}
-          disabled={
-            enviandoVideo ||
-            enviandoImagem ||
-            excluindo
-          }
-        >
-          {enviandoVideo
-            ? 'ENVIANDO VÍDEO...'
-            : exercicio.video
-              ? 'ALTERAR VÍDEO'
-              : 'ADICIONAR VÍDEO'}
-        </Button>
+        <SeletorMidiaExercicio
+          idExercicio={idExercicio}
+          tipo="video"
+          existeMidia={Boolean(exercicio.video)}
+          carregando={enviandoVideo}
+          bloqueado={excluindo || enviandoImagem}
+          erro={erroVideo}
+          enviar={enviarVideo}
+          aoEnviarComSucesso={recarregar}
+        />
       </View>
 
       <View style={styles.acoes}>
         <Button
           onPress={() =>
             router.push({
-              pathname:
-                '/exercicios/[id]/editar',
-              params: {
-                id: idExercicio.toString(),
-              },
+              pathname: "/exercicios/[id]/editar",
+              params: { id: idExercicio.toString() },
             })
           }
-          disabled={
-            excluindo ||
-            enviandoImagem ||
-            enviandoVideo
-          }
+          disabled={bloqueado}
         >
           EDITAR EXERCÍCIO
         </Button>
 
-        <Button
-          onPress={confirmarExclusao}
-          disabled={
-            excluindo ||
-            enviandoImagem ||
-            enviandoVideo
-          }
-        >
-          {excluindo
-            ? 'EXCLUINDO...'
-            : 'EXCLUIR EXERCÍCIO'}
+        <Button onPress={confirmarExclusao} disabled={bloqueado}>
+          {excluindo ? "EXCLUINDO..." : "EXCLUIR EXERCÍCIO"}
         </Button>
       </View>
     </ScrollView>
@@ -372,7 +210,7 @@ export default function DetalhesExercicio() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#111111',
+    backgroundColor: "#111111",
   },
 
   conteudo: {
@@ -382,46 +220,46 @@ const styles = StyleSheet.create({
   },
 
   voltar: {
-    color: '#FECF2B',
+    color: "#FECF2B",
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 25,
   },
 
   titulo: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 28,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 8,
   },
 
   grupoMuscular: {
-    color: '#FECF2B',
+    color: "#FECF2B",
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 25,
   },
 
   imagem: {
-    width: '100%',
+    width: "100%",
     height: 240,
     borderRadius: 12,
     marginBottom: 15,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: "#1A1A1A",
   },
 
   semImagem: {
-    width: '100%',
+    width: "100%",
     height: 240,
     borderRadius: 12,
     marginBottom: 15,
-    backgroundColor: '#1A1A1A',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#1A1A1A",
+    justifyContent: "center",
+    alignItems: "center",
   },
 
   textoSemImagem: {
-    color: '#777777',
+    color: "#777777",
     fontSize: 14,
   },
 
@@ -431,39 +269,31 @@ const styles = StyleSheet.create({
   },
 
   tituloSecao: {
-    color: '#FECF2B',
+    color: "#FECF2B",
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     letterSpacing: 1,
     marginBottom: 10,
   },
 
   descricao: {
-    color: '#CCCCCC',
+    color: "#CCCCCC",
     fontSize: 15,
     lineHeight: 23,
   },
 
-  playerVideo: {
-    width: '100%',
-    height: 220,
-    borderRadius: 12,
-    backgroundColor: '#1A1A1A',
-    marginBottom: 12,
-  },
-
   semVideo: {
-    width: '100%',
+    width: "100%",
     height: 120,
     borderRadius: 12,
-    backgroundColor: '#1A1A1A',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#1A1A1A",
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 12,
   },
 
   textoSemVideo: {
-    color: '#777777',
+    color: "#777777",
     fontSize: 14,
   },
 
@@ -474,42 +304,42 @@ const styles = StyleSheet.create({
 
   carregando: {
     flex: 1,
-    backgroundColor: '#111111',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#111111",
+    justifyContent: "center",
+    alignItems: "center",
   },
 
   textoCarregando: {
-    color: '#AAAAAA',
+    color: "#AAAAAA",
     fontSize: 14,
     marginTop: 12,
   },
 
   mensagem: {
     flex: 1,
-    backgroundColor: '#111111',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#111111",
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 30,
   },
 
   tituloErro: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 18,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    fontWeight: "bold",
+    textAlign: "center",
     marginBottom: 8,
   },
 
   textoErro: {
-    color: '#AAAAAA',
+    color: "#AAAAAA",
     fontSize: 14,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 8,
   },
 
   botaoVoltar: {
-    width: '100%',
+    width: "100%",
     maxWidth: 300,
   },
 });
