@@ -11,7 +11,7 @@ from ..enums.dia_semana import DiaSemana
 
 router = APIRouter()
 
-@router.post("/treino")
+@router.post("/treino", response_model=TreinoResposta)
 def criar_treino(dados: TreinoCriar, professor=Depends(verificar_professor), db: Session = Depends(get_db)):
 
     ficha = db.scalar(
@@ -39,12 +39,12 @@ def criar_treino(dados: TreinoCriar, professor=Depends(verificar_professor), db:
         )
     
     treino = Treino(
-    ficha_id = dados.ficha_id,
-    nome = dados.nome,
-    dia_semana = dados.dia_semana,
-    ordem = dados.ordem,
-    ativo=True
-)
+        ficha_id = dados.ficha_id,
+        nome = dados.nome,
+        dia_semana = dados.dia_semana,
+        ordem = dados.ordem,
+        ativo=True
+    )
         
     db.add(treino)
     db.commit()
@@ -60,7 +60,7 @@ def listar_treinos(ficha_id: int, professor=Depends(verificar_professor), db: Se
     if not ficha:
         raise HTTPException(
             status_code=404,
-            detail="Você não tem ficha salva"
+            detail="Ficha não encontrada"
         )
     
     if ficha.professor_id != professor.id:
@@ -70,13 +70,8 @@ def listar_treinos(ficha_id: int, professor=Depends(verificar_professor), db: Se
         )
     
     treinos = db.scalars(
-     select(Treino).where(Treino.ficha_id == ficha_id, Treino.ativo.is_(True)).order_by(Treino.ordem)).all()
-    
-    if not treinos:
-        raise HTTPException(
-            status_code=404,
-            detail="Você não tem treinos salvos"
-        )
+        select(Treino).where(Treino.ficha_id == ficha_id, Treino.ativo.is_(True)).order_by(Treino.ordem)
+    ).all()
     
     return treinos
 
