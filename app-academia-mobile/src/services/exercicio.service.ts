@@ -8,13 +8,19 @@ import {
 } from '@/types/exercicio.types';
 
 export async function buscarExercicios(
-  paginaSolicitada: number
+  paginaSolicitada: number,
+  opcoes?: {
+    busca?: string;
+    limite?: number;
+  }
 ): Promise<ExerciciosListaResposta> {
   const resposta = await api.get<ExerciciosListaResposta>(
     '/exercicios',
     {
       params: {
         pagina: paginaSolicitada,
+        busca: opcoes?.busca,
+        limite: opcoes?.limite,
       },
     }
   );
