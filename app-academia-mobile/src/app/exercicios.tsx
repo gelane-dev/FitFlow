@@ -59,6 +59,13 @@ export default function Exercicios() {
   return (
     <View style={styles.container}>
       <View style={styles.cabecalho}>
+        <Text
+          style={styles.linkFichas}
+          onPress={() => router.push('/fichas')}
+        >
+          Fichas ›
+        </Text>
+
         <Text style={styles.titulo}>
           EXERCÍCIOS
         </Text>
@@ -159,6 +166,14 @@ const styles = StyleSheet.create({
 
   cabecalho: {
     marginBottom: 20,
+  },
+
+  linkFichas: {
+    color: '#FECF2B',
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 18,
+    textAlign: 'right',
   },
 
   titulo: {
