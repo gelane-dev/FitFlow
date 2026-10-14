@@ -28,6 +28,15 @@ from ..core.seguranca import (
 router = APIRouter()
 
 
+@router.get("/alunos", response_model=list[AlunoResposta])
+def listar_alunos(professor=Depends(verificar_professor), db: Session = Depends(get_db)):
+    alunos = db.scalars(
+        select(Aluno).order_by(Aluno.nome)
+    ).all()
+
+    return alunos
+
+
 @router.get("/perfil", response_model=UsuarioResposta)
 def meu_perfil(verificar: dict = Depends(verificar_token), db: Session = Depends(get_db)):
 
