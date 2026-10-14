@@ -6,6 +6,13 @@ class FichaCriar(BaseModel):
     aluno_id: int
     nome: str
 
+class FichaListaResposta(BaseModel):
+    id: int
+    nome: str
+    data_criacao: datetime
+    aluno_id: int
+    aluno_nome: str
+
 class ItemFichaCriar(BaseModel):
     ficha_id: int
     treino_id: int
