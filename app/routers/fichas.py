@@ -5,12 +5,13 @@ from datetime import datetime
 
 from ..database import get_db
 from ..core.seguranca import verificar_professor, verificar_aluno
-from ..schemas.ficha import FichaCriar, ItemFichaCriar, AtualizarFicha, FichaResposta, ItemFichaResposta, AtualizarItemFicha, ExecucaoHistorico, HistoricoResposta, FichaCompletaResposta
+from ..schemas.ficha import FichaCriar, FichaListaResposta, ItemFichaCriar, AtualizarFicha, FichaResposta, ItemFichaResposta, AtualizarItemFicha, ExecucaoHistorico, HistoricoResposta, FichaCompletaResposta
+from ..schemas.treino import ItemTreinoDiaResposta
 from ..models import Aluno, Ficha, ItemFicha, Exercicio, HistoricoExecucao, Treino
 
 router = APIRouter()
 
-@router.post("/ficha")
+@router.post("/ficha", response_model=FichaListaResposta)
 def criar_ficha(criar: FichaCriar, professor=Depends(verificar_professor), db: Session = Depends(get_db)):
 
     aluno = db.scalar(
@@ -34,9 +35,35 @@ def criar_ficha(criar: FichaCriar, professor=Depends(verificar_professor), db: S
     db.commit()
     db.refresh(ficha)
 
-    return ficha
+    return FichaListaResposta(
+        id=ficha.id,
+        nome=ficha.nome,
+        data_criacao=ficha.data_criacao,
+        aluno_id=ficha.aluno_id,
+        aluno_nome=aluno.nome,
+    )
 
-@router.post("/ficha/itens")
+@router.get("/ficha", response_model=list[FichaListaResposta])
+def listar_fichas_professor(professor=Depends(verificar_professor), db: Session = Depends(get_db)):
+    fichas = db.scalars(
+        select(Ficha).where(
+            Ficha.professor_id == professor.id,
+            Ficha.ativo.is_(True),
+        ).order_by(Ficha.data_criacao.desc())
+    ).all()
+
+    return [
+        FichaListaResposta(
+            id=ficha.id,
+            nome=ficha.nome,
+            data_criacao=ficha.data_criacao,
+            aluno_id=ficha.aluno_id,
+            aluno_nome=ficha.aluno.nome,
+        )
+        for ficha in fichas
+    ]
+
+@router.post("/ficha/itens", response_model=ItemTreinoDiaResposta)
 def criar_itens_ficha(criar: ItemFichaCriar, professor=Depends(verificar_professor), db: Session = Depends(get_db)):
 
     ficha = db.scalar(
@@ -109,7 +136,22 @@ def criar_itens_ficha(criar: ItemFichaCriar, professor=Depends(verificar_profess
     db.commit()
     db.refresh(item)
 
-    return item
+    return ItemTreinoDiaResposta(
+        id=item.id,
+        ficha_id=item.ficha_id,
+        treino_id=item.treino_id,
+        exercicio_id=item.exercicio_id,
+        series=item.series,
+        repeticoes=item.repeticoes,
+        carga=item.carga,
+        descanso=item.descanso,
+        ordem=item.ordem,
+        nome=exercicio.nome,
+        descricao=exercicio.descricao,
+        grupo_muscular=exercicio.grupo_muscular,
+        imagem=exercicio.imagem,
+        video=exercicio.video,
+    )
 
 @router.get("/ficha/{id}", response_model=FichaCompletaResposta)
 def ficha_aluno(id: int, aluno=Depends(verificar_aluno), db: Session = Depends(get_db)):
@@ -364,7 +406,7 @@ def historico_progresso(aluno=Depends(verificar_aluno), db: Session = Depends(ge
     
     return historicos
 
-@router.get("/ficha/itens/treino/{treino_id}", response_model=list[ItemFichaResposta])
+@router.get("/ficha/itens/treino/{treino_id}", response_model=list[ItemTreinoDiaResposta])
 def listar_exercicios(treino_id: int, professor=Depends(verificar_professor), db: Session = Depends(get_db)):
 
     treino = db.scalar(
@@ -392,12 +434,54 @@ def listar_exercicios(treino_id: int, professor=Depends(verificar_professor), db
         )
 
     itens = db.scalars(
-        select(ItemFicha).where(ItemFicha.treino_id == treino_id,ItemFicha.ativo.is_(True)).order_by(ItemFicha.ordem)).all()
+        select(ItemFicha).join(Exercicio).where(
+            ItemFicha.treino_id == treino_id,
+            ItemFicha.ativo.is_(True),
+            Exercicio.ativo.is_(True),
+        ).order_by(ItemFicha.ordem)
+    ).all()
 
-    if not itens:
+    return [
+        ItemTreinoDiaResposta(
+            id=item.id,
+            ficha_id=item.ficha_id,
+            treino_id=item.treino_id,
+            exercicio_id=item.exercicio_id,
+            series=item.series,
+            repeticoes=item.repeticoes,
+            carga=item.carga,
+            descanso=item.descanso,
+            ordem=item.ordem,
+            nome=item.exercicio.nome,
+            descricao=item.exercicio.descricao,
+            grupo_muscular=item.exercicio.grupo_muscular,
+            imagem=item.exercicio.imagem,
+            video=item.exercicio.video,
+        )
+        for item in itens
+    ]
+
+@router.get("/ficha/professor/{id}", response_model=FichaListaResposta)
+def ficha_professor(id: int, professor=Depends(verificar_professor), db: Session = Depends(get_db)):
+    ficha = db.scalar(
+        select(Ficha).where(Ficha.id == id, Ficha.ativo.is_(True)))
+
+    if not ficha:
         raise HTTPException(
             status_code=404,
-            detail="Nenhum exercício cadastrado neste treino"
+            detail="Ficha não encontrada"
         )
 
-    return itens
+    if ficha.professor_id != professor.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Você não tem permissão para visualizar esta ficha"
+        )
+
+    return FichaListaResposta(
+        id=ficha.id,
+        nome=ficha.nome,
+        data_criacao=ficha.data_criacao,
+        aluno_id=ficha.aluno_id,
+        aluno_nome=ficha.aluno.nome,
+    )
