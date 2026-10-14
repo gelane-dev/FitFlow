@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr
 from datetime import date
 
 class UsuarioBase(BaseModel):
@@ -27,6 +27,8 @@ class AlunoResposta(BaseModel):
     nome: str
     telefone: str
     data_nascimento: date
+
+    model_config = ConfigDict(from_attributes=True)
 
 class ProfessorAtualizar(BaseModel):
     nome: str
