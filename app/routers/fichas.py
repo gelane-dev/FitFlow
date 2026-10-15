@@ -5,9 +5,9 @@ from datetime import datetime
 
 from ..database import get_db
 from ..core.seguranca import verificar_professor, verificar_aluno
-from ..schemas.ficha import FichaCriar, FichaListaResposta, ItemFichaCriar, AtualizarFicha, FichaResposta, ItemFichaResposta, AtualizarItemFicha, ExecucaoHistorico, HistoricoResposta, FichaCompletaResposta
+from ..schemas.ficha import FichaCriar, FichaListaResposta, ItemFichaCriar, AtualizarFicha, FichaResposta, ItemFichaResposta, AtualizarItemFicha, FichaCompletaResposta
 from ..schemas.treino import ItemTreinoDiaResposta
-from ..models import Aluno, Ficha, ItemFicha, Exercicio, HistoricoExecucao, Treino
+from ..models import Aluno, Ficha, ItemFicha, Exercicio, Treino
 
 router = APIRouter()
 
@@ -153,7 +153,21 @@ def criar_itens_ficha(criar: ItemFichaCriar, professor=Depends(verificar_profess
         video=exercicio.video,
     )
 
-@router.get("/ficha/{id}", response_model=FichaCompletaResposta)
+@router.get("/ficha/aluno", response_model=list[FichaResposta])
+def fichas(aluno=Depends(verificar_aluno), db: Session = Depends(get_db)):
+
+    fichas = db.scalars(
+        select(Ficha).where(Ficha.aluno_id == aluno.id, Ficha.ativo.is_(True))).all()
+
+    if not fichas:
+        raise HTTPException(
+            status_code=404,
+            detail="Você não possui fichas de treino ativas"
+        )
+    
+    return fichas
+
+@router.get("/ficha/{id:int}", response_model=FichaCompletaResposta)
 def ficha_aluno(id: int, aluno=Depends(verificar_aluno), db: Session = Depends(get_db)):
 
     ficha = db.scalar(
@@ -185,7 +199,7 @@ def ficha_aluno(id: int, aluno=Depends(verificar_aluno), db: Session = Depends(g
     
     return ficha
 
-@router.put("/ficha/{id}", response_model=FichaResposta)
+@router.put("/ficha/{id:int}", response_model=FichaResposta)
 def atualizar_ficha(id: int, dados: AtualizarFicha, professor=Depends(verificar_professor), db: Session = Depends(get_db)):
 
     ficha = db.scalar(
@@ -295,7 +309,7 @@ def deletar_item_ficha(id: int, professor=Depends(verificar_professor), db: Sess
         "mensagem": "Item da ficha excluído com sucesso"
     }
 
-@router.delete("/ficha/{id}")
+@router.delete("/ficha/{id:int}")
 def deletar_ficha(id: int, professor=Depends(verificar_professor), db: Session = Depends(get_db)):
 
     ficha = db.scalar(
@@ -330,81 +344,6 @@ def deletar_ficha(id: int, professor=Depends(verificar_professor), db: Session =
     return {
         "mensagem": "Ficha excluída com sucesso"
     }
-
-@router.get("/ficha/aluno", response_model=list[FichaResposta])
-def fichas(aluno=Depends(verificar_aluno), db: Session = Depends(get_db)):
-
-    fichas = db.scalars(
-        select(Ficha).where(Ficha.aluno_id == aluno.id, Ficha.ativo.is_(True))).all()
-
-    if not fichas:
-        raise HTTPException(
-            status_code=404,
-            detail="Você não possui fichas de treino ativas"
-        )
-    
-    return fichas
-  
-@router.post("/ficha/treino")
-def treino_realizado(dados: ExecucaoHistorico, aluno=Depends(verificar_aluno), db: Session = Depends(get_db)):
-
-    item_ficha = db.scalar(select(ItemFicha).where(ItemFicha.id == dados.item_ficha_id,
-    ItemFicha.ativo.is_(True)))
-
-    if not item_ficha:
-        raise HTTPException(
-            status_code=404,
-            detail="Item da ficha não encontrado"
-        )
-    
-    treino = db.scalar(
-    select(Treino).where(Treino.id == item_ficha.treino_id, Treino.ativo.is_(True)))
-
-    if not treino:
-        raise HTTPException(
-            status_code=404,
-            detail="Treino não encontrado"
-        )
-
-    ficha = db.scalar(select(Ficha).where(Ficha.id == item_ficha.ficha_id, 
-    Ficha.aluno_id == aluno.id, Ficha.ativo.is_(True)))
-    
-    if not ficha:
-        raise HTTPException(
-            status_code=404,
-            detail="Ficha não encontrada"
-        )
-
-    registrar_treino = HistoricoExecucao(
-        item_ficha_id=dados.item_ficha_id,
-        aluno_id=aluno.id,
-        carga_utilizada=dados.carga_utilizada,
-        repeticoes_realizadas=dados.repeticoes_realizadas,
-        series_realizadas=dados.series_realizadas,
-        observacao=dados.observacao,
-        data_execucao=dados.data_execucao
-    )
-    
-    
-    db.add(registrar_treino)
-    db.commit()
-    db.refresh(registrar_treino)
-
-    return {"mensagem": "treino registrado com sucesso"}
-
-@router.get("/ficha/progresso", response_model=list[HistoricoResposta])
-def historico_progresso(aluno=Depends(verificar_aluno), db: Session = Depends(get_db)):
-
-    historicos = db.scalars(
-        select(HistoricoExecucao).where(HistoricoExecucao.aluno_id == aluno.id).order_by(HistoricoExecucao.data_execucao.desc())).all()
-
-    if not historicos:
-        raise HTTPException(
-            status_code=404,
-            detail="Você não possui histórico de treino"
-        )
-    
-    return historicos
 
 @router.get("/ficha/itens/treino/{treino_id}", response_model=list[ItemTreinoDiaResposta])
 def listar_exercicios(treino_id: int, professor=Depends(verificar_professor), db: Session = Depends(get_db)):
