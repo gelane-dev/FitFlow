@@ -12,3 +12,5 @@ class User(Base):
     professor: Mapped["Professor"] = relationship(back_populates="user", uselist=False)
     aluno: Mapped["Aluno"] = relationship(back_populates="user", uselist=False)
     foto: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    foto_public_id: Mapped[str | None] = mapped_column(String(255), nullable=True)

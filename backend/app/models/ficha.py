@@ -1,6 +1,6 @@
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import String, Integer, ForeignKey, DateTime, Boolean
+from sqlalchemy import String, Integer, ForeignKey, DateTime, Boolean, Date
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
@@ -14,6 +14,8 @@ class Ficha(Base):
     professor: Mapped["Professor"] = relationship(back_populates="fichas")
     nome: Mapped[str] = mapped_column(String(150))
     data_criacao: Mapped[datetime] = mapped_column(DateTime)
+    data_inicio: Mapped[date | None] = mapped_column(Date, nullable=True)
+    data_fim: Mapped[date | None] = mapped_column(Date, nullable=True)
     itens: Mapped[list["ItemFicha"]] = relationship(back_populates="ficha")
     ativo: Mapped[bool] = mapped_column(Boolean, default=True)
     treinos: Mapped[list["Treino"]] = relationship(back_populates="ficha")
