@@ -1,23 +1,18 @@
-import { useEffect, useState } from 'react';
 import { router } from 'expo-router';
-
-import {
-  Alert,
-  Image,
-  ImageBackground,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-
+import { useState } from 'react';
+import { ImageBackground, StyleSheet, Text, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Input } from '@/components/input';
-import { Button } from '@/components/button';
+import { Botao } from '@/components/ui/Botao';
+import { CabecalhoDetalhe } from '@/components/ui/CabecalhoDetalhe';
+import { CampoTexto } from '@/components/ui/CampoTexto';
+import { Pressionavel } from '@/components/ui/Pressionavel';
+import { useAlertaErro } from '@/hooks/useAlertaErro';
 import { useCadastro } from '@/hooks/useCadastro';
+import { cores, fonteDisplay, margemTela } from '@/theme';
+import { mostrarAlerta } from '@/utils/alerta';
+import { dataBrParaIso, mascararData } from '@/utils/datas';
 
 export default function Cadastro() {
   const [nome, setNome] = useState('');
@@ -26,28 +21,23 @@ export default function Cadastro() {
   const [dataNascimento, setDataNascimento] = useState('');
   const [senha, setSenha] = useState('');
   const [confirmarSenha, setConfirmarSenha] = useState('');
+  const insets = useSafeAreaInsets();
 
-  const {
-    fazerCadastro: cadastrar,
-    erro,
-    carregando,
-  } = useCadastro();
+  const { fazerCadastro: cadastrar, erro, carregando } = useCadastro();
 
-  useEffect(() => {
-    if (erro) {
-      Alert.alert(
-        'Erro',
-        erro
-      );
-    }
-  }, [erro]);
+  useAlertaErro(erro);
 
   async function fazerCadastro() {
     if (senha !== confirmarSenha) {
-      Alert.alert(
-        'Erro',
-        'As senhas não coincidem.'
-      );
+      mostrarAlerta('Erro', 'As senhas não coincidem.');
+
+      return;
+    }
+
+    const nascimentoIso = dataBrParaIso(dataNascimento);
+
+    if (!nascimentoIso) {
+      mostrarAlerta('Erro', 'Informe a data de nascimento no formato DD/MM/AAAA.');
 
       return;
     }
@@ -56,216 +46,138 @@ export default function Cadastro() {
       nome,
       email,
       telefone,
-      data_nascimento: dataNascimento,
+      data_nascimento: nascimentoIso,
       senha,
     });
 
     if (sucesso) {
-      Alert.alert(
-        'Cadastro realizado',
-        'Sua conta foi criada com sucesso.',
-        [
-          {
-            text: 'OK',
-            onPress: () => router.replace('/'),
-          },
-        ]
-      );
+      // Navega sem depender do botão do alerta (na web ele pode não rodar).
+      router.replace('/');
+      mostrarAlerta('Cadastro realizado', 'Sua conta foi criada com sucesso.');
     }
   }
 
   return (
     <ImageBackground
       source={require('@/assets/images/backgrounds/fundo-login.png')}
-      style={styles.container}
+      style={estilos.fundo}
       resizeMode="cover"
     >
-      <View style={styles.overlay}>
-        <KeyboardAvoidingView
-          style={styles.teclado}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      <View style={estilos.veu}>
+        <KeyboardAwareScrollView
+          contentContainerStyle={[
+            estilos.conteudo,
+            { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 24 },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          enableOnAndroid
+          extraScrollHeight={30}
         >
-          <KeyboardAwareScrollView
-            contentContainerStyle={styles.conteudo}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-            enableOnAndroid
-            extraScrollHeight={30}
-          >
-            <View style={styles.formulario}>
-              <Image
-                source={require('@/assets/images/branding/brasao.png')}
-                style={styles.brasao}
-              />
+          <CabecalhoDetalhe aoVoltar={() => router.replace('/')} />
 
-              <Text style={styles.titulo}>
-                CRIAR CONTA
-              </Text>
+          <Text style={estilos.titulo}>CRIAR CONTA</Text>
+          <Text style={estilos.subtitulo}>Cadastre-se para acompanhar seus treinos.</Text>
 
-              <Text style={styles.label}>
-                Nome
-              </Text>
+          <CampoTexto
+            rotulo="Nome"
+            placeholder="Digite seu nome"
+            value={nome}
+            onChangeText={setNome}
+            autoCapitalize="words"
+            icone="person-outline"
+          />
 
-              <Input
-                placeholder="Digite seu nome"
-                placeholderTextColor="#888"
-                value={nome}
-                onChangeText={setNome}
-                autoCapitalize="words"
-              />
+          <CampoTexto
+            rotulo="E-mail"
+            placeholder="Digite seu e-mail"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            value={email}
+            onChangeText={setEmail}
+            icone="mail-outline"
+          />
 
-              <Text style={styles.label}>
-                E-mail
-              </Text>
+          <CampoTexto
+            rotulo="Telefone"
+            placeholder="Digite seu telefone"
+            keyboardType="phone-pad"
+            value={telefone}
+            onChangeText={setTelefone}
+            icone="call-outline"
+          />
 
-              <Input
-                placeholder="Digite seu e-mail"
-                placeholderTextColor="#888"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                value={email}
-                onChangeText={setEmail}
-              />
+          <CampoTexto
+            rotulo="Data de nascimento"
+            placeholder="DD/MM/AAAA"
+            value={dataNascimento}
+            onChangeText={(valor) => setDataNascimento(mascararData(valor))}
+            keyboardType="number-pad"
+            maxLength={10}
+            icone="calendar-outline"
+          />
 
-              <Text style={styles.label}>
-                Telefone
-              </Text>
+          <CampoTexto
+            rotulo="Senha"
+            placeholder="Digite sua senha"
+            secureTextEntry
+            value={senha}
+            onChangeText={setSenha}
+            icone="lock-closed-outline"
+          />
 
-              <Input
-                placeholder="Digite seu telefone"
-                placeholderTextColor="#888"
-                keyboardType="phone-pad"
-                value={telefone}
-                onChangeText={setTelefone}
-              />
+          <CampoTexto
+            rotulo="Confirmar senha"
+            placeholder="Confirme sua senha"
+            secureTextEntry
+            value={confirmarSenha}
+            onChangeText={setConfirmarSenha}
+            icone="lock-closed-outline"
+          />
 
-              <Text style={styles.label}>
-                Data de nascimento
-              </Text>
+          <Botao onPress={fazerCadastro} carregando={carregando}>
+            CADASTRAR
+          </Botao>
 
-              <Input
-                placeholder="AAAA-MM-DD"
-                placeholderTextColor="#888"
-                value={dataNascimento}
-                onChangeText={setDataNascimento}
-                keyboardType="numbers-and-punctuation"
-              />
+          <View style={estilos.login}>
+            <Text style={estilos.textoLogin}>Já possui uma conta?</Text>
 
-              <Text style={styles.label}>
-                Senha
-              </Text>
-
-              <Input
-                placeholder="Digite sua senha"
-                placeholderTextColor="#888"
-                secureTextEntry
-                value={senha}
-                onChangeText={setSenha}
-              />
-
-              <Text style={styles.label}>
-                Confirmar senha
-              </Text>
-
-              <Input
-                placeholder="Confirme sua senha"
-                placeholderTextColor="#888"
-                secureTextEntry
-                value={confirmarSenha}
-                onChangeText={setConfirmarSenha}
-              />
-
-              <Button
-                onPress={fazerCadastro}
-                disabled={carregando}
-              >
-                {carregando ? 'CADASTRANDO...' : 'CADASTRAR'}
-              </Button>
-
-              <View style={styles.login}>
-                <Text style={styles.textoLogin}>
-                  Já possui uma conta?
-                </Text>
-
-                <Pressable onPress={() => router.push('/')}>
-                  <Text style={styles.linkLogin}>
-                    Entrar
-                  </Text>
-                </Pressable>
-              </View>
-            </View>
-          </KeyboardAwareScrollView>
-        </KeyboardAvoidingView>
+            <Pressionavel onPress={() => router.replace('/')} hitSlop={8}>
+              <Text style={estilos.linkLogin}>Entrar</Text>
+            </Pressionavel>
+          </View>
+        </KeyboardAwareScrollView>
       </View>
     </ImageBackground>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-  },
-
-  teclado: {
-    flex: 1,
-  },
-
+const estilos = StyleSheet.create({
+  fundo: { flex: 1, backgroundColor: cores.fundo },
+  veu: { flex: 1, backgroundColor: cores.veu },
   conteudo: {
     flexGrow: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 40,
-  },
-
-  formulario: {
-    width: '85%',
-    maxWidth: 400,
-  },
-
-  brasao: {
-    width: 75,
-    height: 75,
+    paddingHorizontal: margemTela,
+    width: '100%',
+    maxWidth: 440,
     alignSelf: 'center',
-    marginBottom: 15,
   },
-
   titulo: {
-    color: '#FECF2B',
+    color: cores.primaria,
+    fontFamily: fonteDisplay,
     fontSize: 28,
-    fontWeight: 'bold',
-    textAlign: 'center',
     letterSpacing: 1,
-    marginBottom: 30,
+    marginTop: 12,
   },
-
-  label: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 8,
-  },
-
+  subtitulo: { color: cores.textoSecundario, fontSize: 15, marginTop: 6, marginBottom: 28 },
   login: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: 24,
+    gap: 6,
   },
-
-  textoLogin: {
-    color: '#AAAAAA',
-    fontSize: 14,
-  },
-
-  linkLogin: {
-    color: '#FECF2B',
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginLeft: 5,
-  },
+  textoLogin: { color: cores.textoSecundario, fontSize: 14 },
+  linkLogin: { color: cores.primaria, fontSize: 14, fontWeight: '700' },
 });

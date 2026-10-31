@@ -1,39 +1,38 @@
-import { useCallback } from 'react';
+import { useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 
-import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { router } from 'expo-router';
 
-import { router, useFocusEffect } from 'expo-router';
-
+import { BotaoFlutuante, ESPACO_BOTAO_FLUTUANTE } from '@/components/BotaoFlutuante';
 import { CardFicha } from '@/components/CardFicha';
+import { CabecalhoGrande } from '@/components/ui/CabecalhoGrande';
+import { CampoTexto } from '@/components/ui/CampoTexto';
+import { Chip } from '@/components/ui/Chip';
+import { EstadoErro } from '@/components/ui/EstadoErro';
+import { EstadoVazio } from '@/components/ui/EstadoVazio';
+import { SkeletonLista } from '@/components/ui/Skeleton';
+import { TelaLista } from '@/components/ui/TelaLista';
 import { useFichas } from '@/hooks/useFichas';
 import { useGerenciarFicha } from '@/hooks/useGerenciarFicha';
+import { usePuxarParaAtualizar } from '@/hooks/usePuxarParaAtualizar';
+import { useRecarregarNoFoco } from '@/hooks/useRecarregarNoFoco';
+import { mostrarAlerta } from '@/utils/alerta';
+import { filtrarPorCampos } from '@/utils/busca';
 
+type Filtro = 'todas' | 'vigentes';
+
+/** Aba Fichas do professor (/fichas): lista virtualizada, busca por ficha ou aluno e filtro de vigência. */
 export default function Fichas() {
-  const {
-    fichas,
-    carregando,
-    erro,
-    recarregar,
-  } = useFichas();
-
+  const { fichas, carregando, erro, recarregar } = useFichas();
   const { deletar } = useGerenciarFicha();
+  const [busca, setBusca] = useState('');
+  const [filtro, setFiltro] = useState<Filtro>('todas');
 
-  useFocusEffect(
-    useCallback(() => {
-      recarregar();
-    }, [recarregar])
-  );
+  useRecarregarNoFoco(recarregar);
+  const { atualizando, aoAtualizar } = usePuxarParaAtualizar(recarregar);
 
   function confirmarExclusao(id: number, nome: string) {
-    Alert.alert(
+    mostrarAlerta(
       'Excluir ficha',
       `Deseja realmente excluir "${nome}" e todos os seus treinos?`,
       [
@@ -43,6 +42,7 @@ export default function Fichas() {
           style: 'destructive',
           onPress: async () => {
             const sucesso = await deletar(id);
+
             if (sucesso) {
               await recarregar();
             }
@@ -52,192 +52,81 @@ export default function Fichas() {
     );
   }
 
-  if (carregando) {
-    return (
-      <View style={styles.carregando}>
-        <ActivityIndicator
-          size="large"
-          color="#FECF2B"
+  const base = filtro === 'vigentes' ? fichas.filter((f) => f.vigente) : fichas;
+  const filtradas = filtrarPorCampos(base, busca, (f) => [f.nome, f.aluno_nome]);
+  const primeiraCarga = carregando && fichas.length === 0;
+
+  const cabecalho = (
+    <>
+      <CabecalhoGrande
+        rotulo={`${fichas.length} FICHA${fichas.length === 1 ? '' : 'S'}`}
+        titulo="Fichas"
+      />
+
+      <CampoTexto
+        icone="search-outline"
+        placeholder="Buscar por ficha ou aluno"
+        value={busca}
+        onChangeText={setBusca}
+        autoCorrect={false}
+      />
+
+      <View style={estilos.chips}>
+        <Chip rotulo="Todas" selecionado={filtro === 'todas'} onPress={() => setFiltro('todas')} />
+        <Chip
+          rotulo="Vigentes"
+          selecionado={filtro === 'vigentes'}
+          onPress={() => setFiltro('vigentes')}
         />
-
-        <Text style={styles.textoCarregando}>
-          Carregando fichas...
-        </Text>
       </View>
-    );
-  }
+    </>
+  );
 
-  if (erro) {
-    return (
-      <View style={styles.mensagem}>
-        <Text style={styles.tituloErro}>
-          Erro ao carregar fichas
-        </Text>
-
-        <Text style={styles.textoErro}>
-          {erro}
-        </Text>
-      </View>
-    );
-  }
+  const vazio = erro ? (
+    <EstadoErro mensagem={erro} aoTentarNovamente={recarregar} />
+  ) : primeiraCarga ? (
+    <SkeletonLista linhas={4} />
+  ) : (
+    <EstadoVazio
+      icone="clipboard-outline"
+      titulo={fichas.length === 0 ? 'Nenhuma ficha cadastrada' : 'Nenhuma ficha encontrada'}
+      descricao={
+        fichas.length === 0 ? 'Crie a primeira ficha para um aluno.' : 'Ajuste a busca ou o filtro.'
+      }
+    />
+  );
 
   return (
-    <View style={styles.container}>
-      <View style={styles.cabecalho}>
-        <Text
-          style={styles.voltar}
-          onPress={() => router.replace('/exercicios')}
-        >
-          ‹ Exercícios
-        </Text>
-
-        <Text style={styles.titulo}>
-          FICHAS
-        </Text>
-
-        <Text style={styles.subtitulo}>
-          Montagem de treino
-        </Text>
-
-        <Text style={styles.informacao}>
-          {fichas.length} ficha{fichas.length === 1 ? '' : 's'}
-        </Text>
-
-        <TouchableOpacity
-          style={styles.botaoNovo}
-          onPress={() => router.push('/fichas/nova')}
-        >
-          <Text style={styles.textoBotaoNovo}>
-            + NOVA FICHA
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      <FlatList
-        data={fichas}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => (
+    <View style={estilos.raiz}>
+      <TelaLista
+        abas
+        dados={erro ? [] : filtradas}
+        chave={(ficha) => ficha.id.toString()}
+        cabecalho={cabecalho}
+        vazio={vazio}
+        aoAtualizar={aoAtualizar}
+        atualizando={atualizando}
+        espacoInferior={ESPACO_BOTAO_FLUTUANTE}
+        renderItem={({ item: ficha }) => (
           <CardFicha
-            ficha={item}
+            ficha={ficha}
             onPress={() =>
               router.push({
                 pathname: '/fichas/[id]' as any,
-                params: {
-                  id: item.id.toString(),
-                },
+                params: { id: ficha.id.toString() },
               })
             }
-            onRemover={() => confirmarExclusao(item.id, item.nome)}
+            onRemover={() => confirmarExclusao(ficha.id, ficha.nome)}
           />
         )}
-        contentContainerStyle={styles.lista}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <Text style={styles.vazio}>
-            Nenhuma ficha cadastrada.
-          </Text>
-        }
       />
+
+      <BotaoFlutuante rotulo="+ NOVA FICHA" onPress={() => router.push('/fichas/nova')} />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#111111',
-    paddingHorizontal: 20,
-    paddingTop: 50,
-  },
-
-  cabecalho: {
-    marginBottom: 20,
-  },
-
-  voltar: {
-    color: '#FECF2B',
-    fontSize: 15,
-    fontWeight: '600',
-    marginBottom: 18,
-  },
-
-  titulo: {
-    color: '#FECF2B',
-    fontSize: 28,
-    fontWeight: 'bold',
-    letterSpacing: 1,
-  },
-
-  subtitulo: {
-    color: '#AAAAAA',
-    fontSize: 14,
-    marginTop: 5,
-  },
-
-  informacao: {
-    color: '#777777',
-    fontSize: 12,
-    marginTop: 8,
-  },
-
-  botaoNovo: {
-    backgroundColor: '#FECF2B',
-    paddingVertical: 13,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 18,
-  },
-
-  textoBotaoNovo: {
-    color: '#111111',
-    fontSize: 13,
-    fontWeight: 'bold',
-    letterSpacing: 0.5,
-  },
-
-  lista: {
-    paddingBottom: 20,
-  },
-
-  vazio: {
-    color: '#777777',
-    fontSize: 14,
-    textAlign: 'center',
-    marginTop: 40,
-  },
-
-  carregando: {
-    flex: 1,
-    backgroundColor: '#111111',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  textoCarregando: {
-    color: '#AAAAAA',
-    fontSize: 14,
-    marginTop: 12,
-  },
-
-  mensagem: {
-    flex: 1,
-    backgroundColor: '#111111',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 30,
-  },
-
-  tituloErro: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-
-  textoErro: {
-    color: '#AAAAAA',
-    fontSize: 14,
-    textAlign: 'center',
-  },
+const estilos = StyleSheet.create({
+  raiz: { flex: 1 },
+  chips: { flexDirection: 'row', gap: 8, marginBottom: 20, marginTop: -4 },
 });

@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 
-import { Button } from '@/components/button';
+import { Botao } from '@/components/ui/Botao';
+import { mostrarAlerta } from '@/utils/alerta';
 
 type ArquivoMidia = {
   uri: string;
@@ -68,7 +68,7 @@ export function SeletorMidiaExercicio({
       const sucesso = await enviar(idExercicio, arquivo);
 
       if (!sucesso) {
-        Alert.alert(
+        mostrarAlerta(
           'Erro',
           erro ||
             `Não foi possível enviar ${ehImagem ? 'a imagem' : 'o vídeo'}.`,
@@ -78,12 +78,12 @@ export function SeletorMidiaExercicio({
 
       await aoEnviarComSucesso();
 
-      Alert.alert(
+      mostrarAlerta(
         `${ehImagem ? 'Imagem' : 'Vídeo'} atualizado${ehImagem ? 'a' : 'o'}`,
         `${ehImagem ? 'A imagem' : 'O vídeo'} do exercício foi atualizado com sucesso.`,
       );
     } catch {
-      Alert.alert(
+      mostrarAlerta(
         'Erro',
         `Não foi possível selecionar ou enviar ${ehImagem ? 'a imagem' : 'o vídeo'}.`,
       );
@@ -93,13 +93,15 @@ export function SeletorMidiaExercicio({
   }
 
   return (
-    <Button
+    <Botao
+      variante="secundario"
+      tamanho="medio"
+      icone={ehImagem ? 'image-outline' : 'videocam-outline'}
       onPress={selecionarMidia}
-      disabled={bloqueado || carregando || selecionando}
+      disabled={bloqueado}
+      carregando={carregando || selecionando}
     >
-      {carregando || selecionando
-        ? `ENVIANDO ${ehImagem ? 'IMAGEM' : 'VÍDEO'}...`
-        : `${existeMidia ? 'ALTERAR' : 'ADICIONAR'} ${ehImagem ? 'IMAGEM' : 'VÍDEO'}`}
-    </Button>
+      {`${existeMidia ? 'ALTERAR' : 'ADICIONAR'} ${ehImagem ? 'IMAGEM' : 'VÍDEO'}`}
+    </Botao>
   );
 }

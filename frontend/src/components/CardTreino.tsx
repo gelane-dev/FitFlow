@@ -1,92 +1,98 @@
-import {
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { StyleSheet, Text, View } from 'react-native';
 
+import { Chip } from '@/components/ui/Chip';
+import { Pressionavel } from '@/components/ui/Pressionavel';
+import { cores, raios } from '@/theme';
 import { Treino } from '@/types/ficha.types';
+import { rotuloDiaCompleto } from '@/utils/diasSemana';
 
 interface CardTreinoProps {
   treino: Treino;
   onPress: () => void;
   onRemover?: () => void;
+  onEditar?: () => void;
 }
 
-export function CardTreino({
-  treino,
-  onPress,
-  onRemover,
-}: CardTreinoProps) {
+/** "terça" -> "Terça". */
+export const rotuloDia = rotuloDiaCompleto;
+
+/** "1 exercício" / "3 exercícios" / "0 exercícios". */
+export function rotuloExercicios(total: number): string {
+  return `${total} exercício${total === 1 ? '' : 's'}`;
+}
+
+/** Card de treino de uma ficha: chip do dia da semana, nome e ordem. */
+export function CardTreino({ treino, onPress, onRemover, onEditar }: CardTreinoProps) {
   return (
-    <View style={styles.card}>
-      <TouchableOpacity
-        style={styles.areaPrincipal}
+    <View style={estilos.card}>
+      <Pressionavel
         onPress={onPress}
-        activeOpacity={0.8}
+        escala={0.99}
+        style={estilos.principal}
+        accessibilityRole="button"
+        accessibilityLabel={`Abrir treino ${treino.nome}`}
       >
-        <Text style={styles.nome}>
+        <View style={estilos.chip}>
+          <Chip rotulo={rotuloDia(treino.dia_semana)} selecionado />
+        </View>
+
+        <Text style={estilos.nome} numberOfLines={2}>
           {treino.nome}
         </Text>
 
-        <Text style={styles.dia}>
-          {treino.dia_semana} · ordem {treino.ordem}
+        <Text style={estilos.ordem}>
+          Treino {treino.ordem} · {rotuloExercicios(treino.total_itens)}
         </Text>
-      </TouchableOpacity>
+      </Pressionavel>
 
-      {onRemover && (
-        <TouchableOpacity
-          style={styles.botaoRemover}
-          onPress={onRemover}
-          activeOpacity={0.7}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Text style={styles.textoRemover}>✕</Text>
-        </TouchableOpacity>
-      )}
+      <View style={estilos.acoes}>
+        {onEditar ? (
+          <Pressionavel
+            onPress={onEditar}
+            hitSlop={8}
+            style={estilos.acao}
+            accessibilityRole="button"
+            accessibilityLabel={`Editar treino ${treino.nome}`}
+          >
+            <Ionicons name="create-outline" size={20} color={cores.textoSecundario} />
+          </Pressionavel>
+        ) : null}
+
+        {onRemover ? (
+          <Pressionavel
+            onPress={onRemover}
+            hitSlop={8}
+            style={estilos.acao}
+            accessibilityRole="button"
+            accessibilityLabel={`Excluir treino ${treino.nome}`}
+          >
+            <Ionicons name="trash-outline" size={20} color={cores.textoTerciario} />
+          </Pressionavel>
+        ) : null}
+      </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const estilos = StyleSheet.create({
   card: {
-    backgroundColor: '#1A1A1A',
-    borderRadius: 12,
-    marginBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    overflow: 'hidden',
+    backgroundColor: cores.superficie,
+    borderWidth: 1,
+    borderColor: cores.borda,
+    borderRadius: raios.cartao,
+    marginBottom: 12,
   },
-
-  areaPrincipal: {
-    flex: 1,
-    padding: 18,
+  principal: { flex: 1, padding: 16, gap: 6 },
+  chip: { flexDirection: 'row', marginBottom: 4 },
+  nome: { color: cores.texto, fontSize: 17, fontWeight: '700' },
+  ordem: { color: cores.textoSecundario, fontSize: 13 },
+  acoes: {
+    alignSelf: 'stretch',
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    borderLeftColor: cores.borda,
   },
-
-  nome: {
-    color: '#FFFFFF',
-    fontSize: 17,
-    fontWeight: 'bold',
-    marginBottom: 6,
-  },
-
-  dia: {
-    color: '#FECF2B',
-    fontSize: 13,
-    fontWeight: '600',
-    textTransform: 'capitalize',
-  },
-
-  botaoRemover: {
-    paddingHorizontal: 18,
-    paddingVertical: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  textoRemover: {
-    color: '#777777',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
+  acao: { flex: 1, width: 48, alignItems: 'center', justifyContent: 'center' },
 });

@@ -1,23 +1,26 @@
-import {
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useRef } from 'react';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { Button } from '@/components/button';
-import { Input } from '@/components/input';
+import { Botao } from '@/components/ui/Botao';
+import { CampoTexto } from '@/components/ui/CampoTexto';
+import { Pressionavel } from '@/components/ui/Pressionavel';
+import { cores, raios } from '@/theme';
+import { useErrosAposTentativa } from '@/hooks/useErrosAposTentativa';
 import { RascunhoItem } from '@/types/ficha.types';
+import { CampoItem, validarItem } from '@/utils/validacaoFormularios';
 
 interface FormularioRascunhoItemProps {
   rascunho: RascunhoItem;
   onAtualizar: (campo: keyof RascunhoItem, valor: string) => void;
   onAbrirSeletor: () => void;
+  /** Chamado só quando o rascunho está válido. */
   onSalvar: () => void;
   onCancelar: () => void;
   salvando: boolean;
 }
 
+/** Cartão de um exercício novo ainda não salvo no treino. */
 export function FormularioRascunhoItem({
   rascunho,
   onAtualizar,
@@ -26,159 +29,160 @@ export function FormularioRascunhoItem({
   onCancelar,
   salvando,
 }: FormularioRascunhoItemProps) {
+  const { erros, tentar } = useErrosAposTentativa<CampoItem>(() =>
+    validarItem({
+      series: rascunho.series,
+      repeticoes: rascunho.repeticoes,
+      carga: rascunho.carga,
+      descanso: rascunho.descanso,
+      exercicioId: rascunho.exercicioId,
+      exigirExercicio: true,
+    })
+  );
+
+  // Foco na ordem visual: Séries → Reps → Carga → Descanso.
+  const refRepeticoes = useRef<TextInput>(null);
+  const refCarga = useRef<TextInput>(null);
+  const refDescanso = useRef<TextInput>(null);
+
+  function confirmar() {
+    if (tentar()) {
+      onSalvar();
+    }
+  }
+
   return (
-    <View style={styles.card}>
-      <Text style={styles.label}>Exercício</Text>
+    <View style={estilos.card}>
+      <Text style={estilos.rotuloCard}>Novo exercício</Text>
 
-      <TouchableOpacity
-        style={styles.seletorExercicio}
+      <Text style={estilos.rotulo}>Exercício</Text>
+      <Pressionavel
         onPress={onAbrirSeletor}
-        activeOpacity={0.8}
+        style={[estilos.seletor, erros.exercicio ? estilos.seletorErro : null]}
+        accessibilityRole="button"
       >
-        <Text
-          style={
-            rascunho.exercicioNome
-              ? styles.nomeExercicio
-              : styles.placeholder
-          }
-        >
-          {rascunho.exercicioNome || 'Selecionar exercício'}
-        </Text>
-
-        {rascunho.grupoMuscular ? (
-          <Text style={styles.grupoMuscular}>
-            {rascunho.grupoMuscular}
+        <View style={estilos.seletorTextos}>
+          <Text
+            style={rascunho.exercicioNome ? estilos.nomeExercicio : estilos.placeholder}
+            numberOfLines={1}
+          >
+            {rascunho.exercicioNome || 'Selecionar exercício'}
           </Text>
-        ) : null}
-      </TouchableOpacity>
+          {rascunho.grupoMuscular ? (
+            <Text style={estilos.grupo}>{rascunho.grupoMuscular}</Text>
+          ) : null}
+        </View>
+        <Ionicons name="chevron-down" size={18} color={cores.textoTerciario} />
+      </Pressionavel>
+      {erros.exercicio ? <Text style={estilos.erro}>{erros.exercicio}</Text> : null}
 
-      <View style={styles.grade}>
-        <View style={styles.campoGrade}>
-          <Text style={styles.label}>Séries</Text>
-          <Input
-            placeholder="4"
-            placeholderTextColor="#888"
+      <View style={estilos.grade}>
+        <View style={estilos.coluna}>
+          <CampoTexto
+            rotulo="Séries"
+            placeholder="3"
             keyboardType="number-pad"
+            returnKeyType="next"
+            blurOnSubmit={false}
+            onSubmitEditing={() => refRepeticoes.current?.focus()}
             value={rascunho.series}
             onChangeText={(valor) => onAtualizar('series', valor)}
+            erro={erros.series}
           />
         </View>
-
-        <View style={styles.campoGrade}>
-          <Text style={styles.label}>Reps</Text>
-          <Input
+        <View style={estilos.coluna}>
+          <CampoTexto
+            rotulo="Reps"
+            ref={refRepeticoes}
             placeholder="12"
-            placeholderTextColor="#888"
             keyboardType="number-pad"
+            returnKeyType="next"
+            blurOnSubmit={false}
+            onSubmitEditing={() => refCarga.current?.focus()}
             value={rascunho.repeticoes}
             onChangeText={(valor) => onAtualizar('repeticoes', valor)}
+            erro={erros.repeticoes}
           />
         </View>
       </View>
 
-      <View style={styles.grade}>
-        <View style={styles.campoGrade}>
-          <Text style={styles.label}>Carga (kg)</Text>
-          <Input
-            placeholder="40"
-            placeholderTextColor="#888"
+      <View style={estilos.grade}>
+        <View style={estilos.coluna}>
+          <CampoTexto
+            rotulo="Carga (kg)"
+            ref={refCarga}
+            placeholder="opcional"
             keyboardType="decimal-pad"
+            returnKeyType="next"
+            blurOnSubmit={false}
+            onSubmitEditing={() => refDescanso.current?.focus()}
             value={rascunho.carga}
             onChangeText={(valor) => onAtualizar('carga', valor)}
+            erro={erros.carga}
           />
         </View>
-
-        <View style={styles.campoGrade}>
-          <Text style={styles.label}>Descanso (s)</Text>
-          <Input
+        <View style={estilos.coluna}>
+          <CampoTexto
+            rotulo="Descanso (s)"
+            ref={refDescanso}
             placeholder="60"
-            placeholderTextColor="#888"
             keyboardType="number-pad"
+            returnKeyType="done"
             value={rascunho.descanso}
             onChangeText={(valor) => onAtualizar('descanso', valor)}
+            erro={erros.descanso}
           />
         </View>
       </View>
 
-      <Button onPress={onSalvar} disabled={salvando}>
-        {salvando ? 'SALVANDO...' : 'SALVAR EXERCÍCIO'}
-      </Button>
-
-      <TouchableOpacity
-        style={styles.botaoCancelar}
-        onPress={onCancelar}
-        activeOpacity={0.7}
-      >
-        <Text style={styles.textoCancelar}>CANCELAR</Text>
-      </TouchableOpacity>
+      <Botao onPress={confirmar} carregando={salvando}>
+        SALVAR EXERCÍCIO
+      </Botao>
+      <Botao variante="fantasma" tamanho="medio" onPress={onCancelar} haptico={false}>
+        CANCELAR
+      </Botao>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const estilos = StyleSheet.create({
   card: {
-    backgroundColor: '#1A1A1A',
-    borderRadius: 12,
-    padding: 18,
+    backgroundColor: cores.superficie,
+    borderWidth: 1,
+    borderColor: cores.primaria,
+    borderStyle: 'dashed',
+    borderRadius: raios.cartao,
+    padding: 16,
+    marginBottom: 12,
+    gap: 4,
+  },
+  rotuloCard: {
+    color: cores.primaria,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
     marginBottom: 12,
   },
-
-  label: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 8,
-  },
-
-  seletorExercicio: {
-    backgroundColor: 'rgba(20, 20, 20, 0.85)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    borderRadius: 8,
-    paddingHorizontal: 15,
-    paddingVertical: 14,
-    marginBottom: 16,
-  },
-
-  nomeExercicio: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-
-  placeholder: {
-    color: '#888888',
-    fontSize: 15,
-  },
-
-  grupoMuscular: {
-    color: '#FECF2B',
-    fontSize: 13,
-    fontWeight: '600',
-    marginTop: 4,
-  },
-
-  grade: {
+  rotulo: { color: cores.textoSecundario, fontSize: 13, fontWeight: '600', marginBottom: 8 },
+  seletor: {
     flexDirection: 'row',
-    gap: 10,
-  },
-
-  campoGrade: {
-    flex: 1,
-  },
-
-  botaoCancelar: {
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.08)',
-    paddingTop: 12,
-    marginTop: 14,
     alignItems: 'center',
+    minHeight: 52,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    backgroundColor: cores.superficieElevada,
+    borderWidth: 1,
+    borderColor: cores.borda,
+    borderRadius: raios.input,
+    marginBottom: 18,
   },
-
-  textoCancelar: {
-    color: '#FECF2B',
-    fontSize: 12,
-    fontWeight: 'bold',
-    letterSpacing: 0.8,
-  },
+  seletorErro: { borderColor: cores.perigo, marginBottom: 6 },
+  seletorTextos: { flex: 1 },
+  nomeExercicio: { color: cores.texto, fontSize: 15, fontWeight: '600' },
+  placeholder: { color: cores.textoTerciario, fontSize: 15 },
+  grupo: { color: cores.primaria, fontSize: 12, fontWeight: '600', marginTop: 2 },
+  erro: { color: cores.perigo, fontSize: 12, marginBottom: 14 },
+  grade: { flexDirection: 'row', gap: 12 },
+  coluna: { flex: 1 },
 });

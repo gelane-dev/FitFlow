@@ -1,10 +1,10 @@
-import {
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { StyleSheet, Text, View } from 'react-native';
 
+import { MiniaturaExercicio } from '@/components/exercicios/MiniaturaExercicio';
+import { Chip } from '@/components/ui/Chip';
+import { Pressionavel } from '@/components/ui/Pressionavel';
+import { cores, raios } from '@/theme';
 import { Exercicio } from '@/types/exercicio.types';
 
 interface CardExercicioProps {
@@ -13,90 +13,69 @@ interface CardExercicioProps {
   onEditar: () => void;
 }
 
-export function CardExercicio({
-  exercicio,
-  onPress,
-  onEditar,
-}: CardExercicioProps) {
+/** Card de exercício da biblioteca: miniatura, nome, grupo muscular e descrição. */
+export function CardExercicio({ exercicio, onPress, onEditar }: CardExercicioProps) {
   return (
-    <View style={styles.card}>
-      <TouchableOpacity
-        style={styles.areaPrincipal}
+    <View style={estilos.card}>
+      <Pressionavel
         onPress={onPress}
-        activeOpacity={0.8}
+        escala={0.99}
+        style={estilos.principal}
+        accessibilityRole="button"
+        accessibilityLabel={`Abrir ${exercicio.nome}`}
       >
-        <Text style={styles.nome}>
-          {exercicio.nome}
-        </Text>
+        <MiniaturaExercicio uri={exercicio.imagem} tamanho={72} />
 
-        <Text style={styles.grupoMuscular}>
-          {exercicio.grupo_muscular}
-        </Text>
+        <View style={estilos.textos}>
+          <Text style={estilos.nome} numberOfLines={2}>
+            {exercicio.nome}
+          </Text>
 
-        <Text
-          style={styles.descricao}
-          numberOfLines={2}
-        >
-          {exercicio.descricao}
-        </Text>
-      </TouchableOpacity>
+          <View style={estilos.chip}>
+            <Chip rotulo={exercicio.grupo_muscular} icone="body-outline" />
+          </View>
 
-      <TouchableOpacity
-        style={styles.botaoEditar}
+          <Text style={estilos.descricao} numberOfLines={2}>
+            {exercicio.descricao}
+          </Text>
+        </View>
+      </Pressionavel>
+
+      <Pressionavel
         onPress={onEditar}
-        activeOpacity={0.8}
+        haptico="leve"
+        hitSlop={8}
+        style={estilos.editar}
+        accessibilityRole="button"
+        accessibilityLabel={`Editar ${exercicio.nome}`}
       >
-        <Text style={styles.textoEditar}>
-          EDITAR
-        </Text>
-      </TouchableOpacity>
+        <Ionicons name="create-outline" size={20} color={cores.textoSecundario} />
+      </Pressionavel>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const estilos = StyleSheet.create({
   card: {
-    backgroundColor: '#1A1A1A',
-    borderRadius: 12,
-    marginBottom: 12,
-    overflow: 'hidden',
-  },
-
-  areaPrincipal: {
-    padding: 18,
-  },
-
-  nome: {
-    color: '#FFFFFF',
-    fontSize: 17,
-    fontWeight: 'bold',
-    marginBottom: 6,
-  },
-
-  grupoMuscular: {
-    color: '#FECF2B',
-    fontSize: 13,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-
-  descricao: {
-    color: '#AAAAAA',
-    fontSize: 13,
-    lineHeight: 19,
-  },
-
-  botaoEditar: {
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.08)',
-    paddingVertical: 12,
+    flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: cores.superficie,
+    borderWidth: 1,
+    borderColor: cores.borda,
+    borderRadius: raios.cartao,
+    marginBottom: 12,
   },
-
-  textoEditar: {
-    color: '#FECF2B',
-    fontSize: 12,
-    fontWeight: 'bold',
-    letterSpacing: 0.8,
+  principal: { flex: 1, flexDirection: 'row', gap: 14, padding: 12 },
+  textos: { flex: 1, gap: 6 },
+  nome: { color: cores.texto, fontSize: 16, fontWeight: '700' },
+  chip: { flexDirection: 'row' },
+  descricao: { color: cores.textoSecundario, fontSize: 13, lineHeight: 18 },
+  editar: {
+    width: 44,
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    borderLeftColor: cores.borda,
   },
 });

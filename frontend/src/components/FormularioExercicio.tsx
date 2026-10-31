@@ -1,50 +1,62 @@
-import { useState } from 'react';
+import { ReactNode, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 
-import { Alert, StyleSheet, Text, View } from 'react-native';
-
-import { Button } from '@/components/button';
-import { Input } from '@/components/input';
+import { Botao } from '@/components/ui/Botao';
+import { CabecalhoDetalhe } from '@/components/ui/CabecalhoDetalhe';
+import { CampoTexto } from '@/components/ui/CampoTexto';
+import { Chip } from '@/components/ui/Chip';
+import { Tela } from '@/components/ui/Tela';
+import { TituloSecao } from '@/components/ui/TituloSecao';
+import { useErrosAposTentativa } from '@/hooks/useErrosAposTentativa';
 import { ExercicioAtualizar } from '@/types/exercicio.types';
+import { CampoExercicio, validarExercicio } from '@/utils/validacaoFormularios';
+
+/** Grupos musculares mais comuns, como atalho de preenchimento. */
+export const GRUPOS_SUGERIDOS = [
+  'Peito',
+  'Costas',
+  'Pernas',
+  'Ombros',
+  'Bíceps',
+  'Tríceps',
+  'Abdômen',
+  'Glúteos',
+];
 
 interface FormularioExercicioProps {
-  exercicio: {
+  titulo: string;
+  exercicio?: {
     nome: string;
     descricao: string;
     grupo_muscular: string;
   };
   salvando: boolean;
   desabilitado?: boolean;
+  rotuloBotao: string;
   onSalvar: (dados: ExercicioAtualizar) => void;
+  /** Conteúdo exibido entre o cabeçalho e os campos (ex.: mídia do exercício). */
+  topo?: ReactNode;
 }
 
+/** Tela de formulário de exercício (novo e edição): campos em seções e botão no rodapé. */
 export function FormularioExercicio({
+  titulo,
   exercicio,
   salvando,
   desabilitado = false,
+  rotuloBotao,
   onSalvar,
+  topo,
 }: FormularioExercicioProps) {
-  const [nome, setNome] = useState(exercicio.nome);
-  const [descricao, setDescricao] = useState(exercicio.descricao);
-  const [grupoMuscular, setGrupoMuscular] = useState(
-    exercicio.grupo_muscular
+  const [nome, setNome] = useState(exercicio?.nome ?? '');
+  const [descricao, setDescricao] = useState(exercicio?.descricao ?? '');
+  const [grupoMuscular, setGrupoMuscular] = useState(exercicio?.grupo_muscular ?? '');
+  const { erros, tentar } = useErrosAposTentativa<CampoExercicio>(() =>
+    validarExercicio({ nome, descricao, grupo: grupoMuscular })
   );
 
   function enviar() {
-    if (!nome.trim()) {
-      Alert.alert('Atenção', 'Informe o nome do exercício.');
-
-      return;
-    }
-
-    if (!descricao.trim()) {
-      Alert.alert('Atenção', 'Informe a descrição do exercício.');
-
-      return;
-    }
-
-    if (!grupoMuscular.trim()) {
-      Alert.alert('Atenção', 'Informe o grupo muscular.');
-
+    if (!tentar()) {
       return;
     }
 
@@ -56,71 +68,56 @@ export function FormularioExercicio({
   }
 
   return (
-    <View>
-      <View style={styles.campo}>
-        <Text style={styles.label}>Nome</Text>
+    <Tela
+      teclado
+      rodape={
+        <Botao onPress={enviar} carregando={salvando} disabled={desabilitado}>
+          {rotuloBotao}
+        </Botao>
+      }
+    >
+      <CabecalhoDetalhe titulo={titulo} />
 
-        <Input
-          placeholder="Digite o nome do exercício"
-          placeholderTextColor="#888"
-          value={nome}
-          onChangeText={setNome}
-        />
+      {topo}
+
+      <TituloSecao titulo="Informações" />
+      <CampoTexto
+        rotulo="Nome"
+        placeholder="Digite o nome do exercício"
+        value={nome}
+        onChangeText={setNome}
+        erro={erros.nome}
+      />
+      <CampoTexto
+        rotulo="Descrição"
+        placeholder="Digite a descrição do exercício"
+        value={descricao}
+        onChangeText={setDescricao}
+        multiline
+        erro={erros.descricao}
+      />
+
+      <TituloSecao titulo="Grupo muscular" />
+      <CampoTexto
+        placeholder="Ex.: Peito, Costas, Pernas"
+        value={grupoMuscular}
+        onChangeText={setGrupoMuscular}
+        erro={erros.grupo}
+      />
+      <View style={estilos.chips}>
+        {GRUPOS_SUGERIDOS.map((grupo) => (
+          <Chip
+            key={grupo}
+            rotulo={grupo}
+            selecionado={grupoMuscular.trim().toLowerCase() === grupo.toLowerCase()}
+            onPress={() => setGrupoMuscular(grupo)}
+          />
+        ))}
       </View>
-
-      <View style={styles.campo}>
-        <Text style={styles.label}>Descrição</Text>
-
-        <Input
-          placeholder="Digite a descrição do exercício"
-          placeholderTextColor="#888"
-          value={descricao}
-          onChangeText={setDescricao}
-          multiline
-          style={styles.inputDescricao}
-        />
-      </View>
-
-      <View style={styles.campo}>
-        <Text style={styles.label}>Grupo muscular</Text>
-
-        <Input
-          placeholder="Ex.: Peito, Costas, Pernas"
-          placeholderTextColor="#888"
-          value={grupoMuscular}
-          onChangeText={setGrupoMuscular}
-        />
-      </View>
-
-      <View style={styles.botaoSalvar}>
-        <Button onPress={enviar} disabled={salvando || desabilitado}>
-          {salvando ? 'SALVANDO...' : 'SALVAR ALTERAÇÕES'}
-        </Button>
-      </View>
-    </View>
+    </Tela>
   );
 }
 
-const styles = StyleSheet.create({
-  label: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 8,
-  },
-
-  campo: {
-    marginTop: 25,
-  },
-
-  inputDescricao: {
-    height: 120,
-    textAlignVertical: 'top',
-    paddingTop: 15,
-  },
-
-  botaoSalvar: {
-    marginTop: 10,
-    marginBottom: 20,
-  },
+const estilos = StyleSheet.create({
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
 });

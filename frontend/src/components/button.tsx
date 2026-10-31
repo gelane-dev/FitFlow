@@ -1,28 +1,11 @@
-import { StyleSheet, Text, TouchableOpacity, TouchableOpacityProps, } from 'react-native';
+import { ComponentProps } from 'react';
 
-export function Button({ children, ...rest}: TouchableOpacityProps & { children: React.ReactNode; }) {
-  return ( <TouchableOpacity style={styles.botao} {...rest}>
-      <Text style={styles.texto}>
-        {children}
-      </Text>
-    </TouchableOpacity>
-  );
+import { Botao } from '@/components/ui/Botao';
+
+/**
+ * Compatibilidade: as telas ainda não redesenhadas usam `Button`.
+ * Novo código deve usar `Botao` de `@/components/ui` (ADR-031).
+ */
+export function Button(props: ComponentProps<typeof Botao>) {
+  return <Botao {...props} />;
 }
-
-const styles = StyleSheet.create({
-  botao: {
-    width: '100%',
-    height: 52,
-    backgroundColor: '#FECF2B',
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  texto: {
-    color: '#111111',
-    fontSize: 15,
-    fontWeight: 'bold',
-    letterSpacing: 1,
-  },
-});

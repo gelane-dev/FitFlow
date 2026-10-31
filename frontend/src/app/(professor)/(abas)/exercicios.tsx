@@ -1,283 +1,177 @@
 import { useState } from 'react';
-
-import {
-  ActivityIndicator,
-  FlatList,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { router } from 'expo-router';
 
+import { BotaoFlutuante, ESPACO_BOTAO_FLUTUANTE } from '@/components/BotaoFlutuante';
 import { CardExercicio } from '@/components/CardExercicio';
+import { Botao } from '@/components/ui/Botao';
+import { CabecalhoGrande } from '@/components/ui/CabecalhoGrande';
+import { CampoTexto } from '@/components/ui/CampoTexto';
+import { Chip } from '@/components/ui/Chip';
+import { EstadoErro } from '@/components/ui/EstadoErro';
+import { EstadoVazio } from '@/components/ui/EstadoVazio';
+import { SkeletonLista } from '@/components/ui/Skeleton';
+import { TelaLista } from '@/components/ui/TelaLista';
 import { useExercicios } from '@/hooks/useExercicios';
+import { usePuxarParaAtualizar } from '@/hooks/usePuxarParaAtualizar';
+import { useRecarregarNoFoco } from '@/hooks/useRecarregarNoFoco';
+import { cores } from '@/theme';
+import { filtrarPorCampos } from '@/utils/busca';
+import { agruparGruposMusculares, pertenceAoGrupo } from '@/utils/gruposMusculares';
 
+/** Aba Exercícios do professor (/exercicios): biblioteca virtualizada com busca, filtro por grupo e paginação. */
 export default function Exercicios() {
   const [paginaSolicitada, setPaginaSolicitada] = useState(1);
+  const [busca, setBusca] = useState('');
+  // Chave normalizada do grupo (sem caixa nem acento), não o texto exibido.
+  const [grupo, setGrupo] = useState<string | null>(null);
 
-  const {
-    exercicios,
-    pagina,
-    limite,
-    total,
-    totalPaginas,
-    carregando,
-    erro,
-  } = useExercicios(paginaSolicitada);
+  const { exercicios, pagina, total, totalPaginas, carregando, erro, recarregar } =
+    useExercicios(paginaSolicitada);
 
-  if (carregando) {
-    return (
-      <View style={styles.carregando}>
-        <ActivityIndicator
-          size="large"
-          color="#FECF2B"
-        />
+  useRecarregarNoFoco(recarregar);
+  const { atualizando, aoAtualizar } = usePuxarParaAtualizar(recarregar);
 
-        <Text style={styles.textoCarregando}>
-          Carregando exercícios...
+  // "peito" e "Peito" (ou "biceps" e "Bíceps") viram um chip só; os dados não mudam.
+  const grupos = agruparGruposMusculares(exercicios.map((e) => e.grupo_muscular));
+  const porGrupo = grupo
+    ? exercicios.filter((e) => pertenceAoGrupo(e.grupo_muscular, grupo))
+    : exercicios;
+  const filtrados = filtrarPorCampos(porGrupo, busca, (e) => [e.nome, e.grupo_muscular]);
+  const primeiraCarga = carregando && exercicios.length === 0;
+
+  const cabecalho = (
+    <>
+      <CabecalhoGrande
+        rotulo={`${total} EXERCÍCIO${total === 1 ? '' : 'S'}`}
+        titulo="Exercícios"
+      />
+
+      <CampoTexto
+        icone="search-outline"
+        placeholder="Buscar exercício ou grupo"
+        value={busca}
+        onChangeText={setBusca}
+        autoCorrect={false}
+      />
+
+      {grupos.length > 1 ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={estilos.faixaChips}
+          contentContainerStyle={estilos.chips}
+        >
+          <Chip rotulo="Todos" selecionado={grupo === null} onPress={() => setGrupo(null)} />
+          {grupos.map((g) => (
+            <Chip
+              key={g.chave}
+              rotulo={g.rotulo}
+              selecionado={grupo === g.chave}
+              onPress={() => setGrupo(grupo === g.chave ? null : g.chave)}
+            />
+          ))}
+        </ScrollView>
+      ) : null}
+    </>
+  );
+
+  const vazio = erro ? (
+    <EstadoErro mensagem={erro} aoTentarNovamente={recarregar} />
+  ) : primeiraCarga ? (
+    <SkeletonLista linhas={5} />
+  ) : (
+    <EstadoVazio
+      icone="barbell-outline"
+      titulo={exercicios.length === 0 ? 'Nenhum exercício cadastrado' : 'Nenhum exercício encontrado'}
+      descricao={
+        exercicios.length === 0
+          ? 'Cadastre o primeiro exercício da biblioteca.'
+          : 'Ajuste a busca ou o filtro.'
+      }
+    />
+  );
+
+  const rodape =
+    totalPaginas > 1 ? (
+      <View style={estilos.paginacao}>
+        <View style={estilos.botaoPagina}>
+          <Botao
+            variante="secundario"
+            tamanho="pequeno"
+            icone="chevron-back"
+            disabled={pagina <= 1}
+            onPress={() => setPaginaSolicitada(pagina - 1)}
+          >
+            Anterior
+          </Botao>
+        </View>
+
+        <Text style={estilos.numeroPagina}>
+          Página {pagina} de {totalPaginas}
         </Text>
+
+        <View style={estilos.botaoPagina}>
+          <Botao
+            variante="secundario"
+            tamanho="pequeno"
+            disabled={pagina >= totalPaginas}
+            onPress={() => setPaginaSolicitada(pagina + 1)}
+          >
+            Próxima
+          </Botao>
+        </View>
       </View>
-    );
-  }
-
-  if (erro) {
-    return (
-      <View style={styles.mensagem}>
-        <Text style={styles.tituloErro}>
-          Erro ao carregar exercícios
-        </Text>
-
-        <Text style={styles.textoErro}>
-          {erro}
-        </Text>
-      </View>
-    );
-  }
+    ) : null;
 
   return (
-    <View style={styles.container}>
-      <View style={styles.cabecalho}>
-        <Text
-          style={styles.linkFichas}
-          onPress={() => router.push('/fichas')}
-        >
-          Fichas ›
-        </Text>
-
-        <Text style={styles.titulo}>
-          EXERCÍCIOS
-        </Text>
-
-        <Text style={styles.subtitulo}>
-          Biblioteca de exercícios
-        </Text>
-
-        <Text style={styles.informacao}>
-          {total} exercícios • {limite} por página
-        </Text>
-
-        <TouchableOpacity
-          style={styles.botaoNovo}
-          onPress={() => router.push('/exercicios/novo')}
-        >
-          <Text style={styles.textoBotaoNovo}>
-            + NOVO EXERCÍCIO
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      <FlatList
-        data={exercicios}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => (
+    <View style={estilos.raiz}>
+      <TelaLista
+        abas
+        dados={erro ? [] : filtrados}
+        chave={(exercicio) => exercicio.id.toString()}
+        cabecalho={cabecalho}
+        vazio={vazio}
+        rodape={rodape}
+        aoAtualizar={aoAtualizar}
+        atualizando={atualizando}
+        espacoInferior={ESPACO_BOTAO_FLUTUANTE}
+        renderItem={({ item: exercicio }) => (
           <CardExercicio
-            exercicio={item}
+            exercicio={exercicio}
             onPress={() =>
               router.push({
                 pathname: '/exercicios/[id]',
-                params: {
-                  id: item.id.toString(),
-                },
+                params: { id: exercicio.id.toString() },
               })
             }
             onEditar={() =>
               router.push({
                 pathname: '/exercicios/[id]/editar',
-                params: {
-                  id: item.id.toString(),
-                },
+                params: { id: exercicio.id.toString() },
               })
             }
           />
         )}
-        contentContainerStyle={styles.lista}
-        showsVerticalScrollIndicator={false}
       />
 
-      <View style={styles.paginacao}>
-        <TouchableOpacity
-          style={[
-            styles.botaoPaginacao,
-            pagina === 1 && styles.botaoDesabilitado,
-          ]}
-          disabled={pagina === 1}
-          onPress={() =>
-            setPaginaSolicitada(pagina - 1)
-          }
-        >
-          <Text style={styles.textoBotao}>
-            ANTERIOR
-          </Text>
-        </TouchableOpacity>
-
-        <Text style={styles.numeroPagina}>
-          Página {pagina} de {totalPaginas}
-        </Text>
-
-        <TouchableOpacity
-          style={[
-            styles.botaoPaginacao,
-            pagina === totalPaginas &&
-              styles.botaoDesabilitado,
-          ]}
-          disabled={pagina === totalPaginas}
-          onPress={() =>
-            setPaginaSolicitada(pagina + 1)
-          }
-        >
-          <Text style={styles.textoBotao}>
-            PRÓXIMA
-          </Text>
-        </TouchableOpacity>
-      </View>
+      <BotaoFlutuante rotulo="+ NOVO EXERCÍCIO" onPress={() => router.push('/exercicios/novo')} />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#111111',
-    paddingHorizontal: 20,
-    paddingTop: 50,
-  },
-
-  cabecalho: {
-    marginBottom: 20,
-  },
-
-  linkFichas: {
-    color: '#FECF2B',
-    fontSize: 15,
-    fontWeight: '600',
-    marginBottom: 18,
-    textAlign: 'right',
-  },
-
-  titulo: {
-    color: '#FECF2B',
-    fontSize: 28,
-    fontWeight: 'bold',
-    letterSpacing: 1,
-  },
-
-  subtitulo: {
-    color: '#AAAAAA',
-    fontSize: 14,
-    marginTop: 5,
-  },
-
-  informacao: {
-    color: '#777777',
-    fontSize: 12,
-    marginTop: 8,
-  },
-
-  botaoNovo: {
-    backgroundColor: '#FECF2B',
-    paddingVertical: 13,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 18,
-  },
-
-  textoBotaoNovo: {
-    color: '#111111',
-    fontSize: 13,
-    fontWeight: 'bold',
-    letterSpacing: 0.5,
-  },
-
-  lista: {
-    paddingBottom: 20,
-  },
-
+const estilos = StyleSheet.create({
+  raiz: { flex: 1 },
+  faixaChips: { flexGrow: 0, marginBottom: 20, marginTop: -4 },
+  chips: { gap: 8 },
   paginacao: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 15,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+    gap: 12,
+    marginTop: 8,
   },
-
-  botaoPaginacao: {
-    backgroundColor: '#FECF2B',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-
-  botaoDesabilitado: {
-    opacity: 0.3,
-  },
-
-  textoBotao: {
-    color: '#111111',
-    fontSize: 11,
-    fontWeight: 'bold',
-  },
-
-  numeroPagina: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-
-  carregando: {
-    flex: 1,
-    backgroundColor: '#111111',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  textoCarregando: {
-    color: '#AAAAAA',
-    fontSize: 14,
-    marginTop: 12,
-  },
-
-  mensagem: {
-    flex: 1,
-    backgroundColor: '#111111',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 30,
-  },
-
-  tituloErro: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-
-  textoErro: {
-    color: '#AAAAAA',
-    fontSize: 14,
-    textAlign: 'center',
-  },
+  botaoPagina: { flex: 1 },
+  numeroPagina: { color: cores.textoSecundario, fontSize: 13, fontWeight: '600' },
 });

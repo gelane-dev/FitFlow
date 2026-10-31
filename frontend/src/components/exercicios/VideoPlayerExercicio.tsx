@@ -1,5 +1,7 @@
-import { StyleSheet } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
+import { StyleSheet } from 'react-native';
+
+import { cores, raios } from '@/theme';
 
 type VideoPlayerExercicioProps = {
   uri: string;
@@ -25,9 +27,9 @@ export function VideoPlayerExercicio({
 const styles = StyleSheet.create({
   playerVideo: {
     width: '100%',
-    height: 220,
-    borderRadius: 12,
-    backgroundColor: '#1A1A1A',
-    marginBottom: 12,
+    aspectRatio: 16 / 9,
+    borderRadius: raios.cartao,
+    backgroundColor: cores.superficieElevada,
+    overflow: 'hidden',
   },
 });

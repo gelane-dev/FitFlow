@@ -1,17 +1,15 @@
-import { useEffect, useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { useCallback, useEffect, useState } from 'react';
+import { Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import {
-  ActivityIndicator,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-
-import { Input } from '@/components/input';
+import { CampoTexto } from '@/components/ui/CampoTexto';
+import { EstadoErroSecao } from '@/components/ui/EstadoErroSecao';
+import { EstadoVazio } from '@/components/ui/EstadoVazio';
+import { LinhaLista } from '@/components/ui/LinhaLista';
+import { Pressionavel } from '@/components/ui/Pressionavel';
+import { SkeletonLista } from '@/components/ui/Skeleton';
 import { buscarExercicios } from '@/services/exercicio.service';
+import { cores, margemTela, raios } from '@/theme';
 import { Exercicio } from '@/types/exercicio.types';
 
 interface ModalSeletorExercicioProps {
@@ -20,6 +18,7 @@ interface ModalSeletorExercicioProps {
   onSelecionar: (exercicio: Exercicio) => void;
 }
 
+/** Folha inferior para escolher um exercício da biblioteca (com busca). */
 export function ModalSeletorExercicio({
   visivel,
   onFechar,
@@ -29,149 +28,127 @@ export function ModalSeletorExercicio({
   const [exercicios, setExercicios] = useState<Exercicio[]>([]);
   const [carregando, setCarregando] = useState(false);
 
-  useEffect(() => {
-    async function carregarExercicios() {
-      try {
-        setCarregando(true);
-        const dados = await buscarExercicios(1, {
-          limite: 100,
-          busca: busca.trim() || undefined,
-        });
-        setExercicios(dados.itens);
-      } catch {
-        setExercicios([]);
-      } finally {
-        setCarregando(false);
-      }
-    }
+  const [erro, setErro] = useState(false);
 
+  const carregarExercicios = useCallback(async () => {
+    try {
+      setCarregando(true);
+      setErro(false);
+
+      const dados = await buscarExercicios(1, {
+        limite: 100,
+        busca: busca.trim() || undefined,
+      });
+
+      setExercicios(dados.itens);
+    } catch {
+      setExercicios([]);
+      setErro(true);
+    } finally {
+      setCarregando(false);
+    }
+  }, [busca]);
+
+  useEffect(() => {
     if (visivel) {
       carregarExercicios();
     }
-  }, [visivel, busca]);
+  }, [visivel, carregarExercicios]);
 
   return (
-    <Modal
-      visible={visivel}
-      animationType="slide"
-      transparent
-      onRequestClose={onFechar}
-    >
-      <View style={styles.modalFundo}>
-        <View style={styles.modalCaixa}>
-          <Text style={styles.tituloModal}>ESCOLHER EXERCÍCIO</Text>
+    <Modal visible={visivel} animationType="slide" transparent onRequestClose={onFechar}>
+      <View style={estilos.fundo}>
+        <View style={estilos.folha}>
+          <View style={estilos.cabecalho}>
+            <Text style={estilos.titulo}>ESCOLHER EXERCÍCIO</Text>
+            <Pressionavel
+              onPress={onFechar}
+              hitSlop={10}
+              style={estilos.fechar}
+              accessibilityRole="button"
+              accessibilityLabel="Fechar"
+            >
+              <Ionicons name="close" size={20} color={cores.texto} />
+            </Pressionavel>
+          </View>
 
-          <Input
+          <CampoTexto
+            icone="search-outline"
             placeholder="Buscar exercício"
-            placeholderTextColor="#888"
             value={busca}
             onChangeText={setBusca}
+            autoCorrect={false}
           />
 
           {carregando ? (
-            <ActivityIndicator color="#FECF2B" style={styles.loader} />
+            <SkeletonLista linhas={5} />
+          ) : erro ? (
+            <EstadoErroSecao
+              mensagem="Não foi possível carregar os exercícios."
+              aoTentarNovamente={carregarExercicios}
+              rede
+              testID="seletor-erro"
+            />
           ) : (
-            <ScrollView style={styles.listaModal}>
-              {exercicios.map((exercicio) => (
-                <TouchableOpacity
+            <ScrollView
+              style={estilos.lista}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              {exercicios.map((exercicio, indice) => (
+                <LinhaLista
                   key={exercicio.id}
-                  style={styles.itemModal}
+                  titulo={exercicio.nome}
+                  subtitulo={exercicio.grupo_muscular}
+                  icone="barbell-outline"
+                  thumbUri={exercicio.imagem}
+                  separador={indice < exercicios.length - 1}
                   onPress={() => onSelecionar(exercicio)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.nomeExercicio}>{exercicio.nome}</Text>
-                  <Text style={styles.grupoMuscular}>
-                    {exercicio.grupo_muscular}
-                  </Text>
-                </TouchableOpacity>
+                />
               ))}
-
-              {exercicios.length === 0 && (
-                <Text style={styles.vazio}>Nenhum exercício encontrado.</Text>
-              )}
+              {exercicios.length === 0 ? (
+                <EstadoVazio icone="search-outline" titulo="Nenhum exercício encontrado." />
+              ) : null}
             </ScrollView>
           )}
-
-          <TouchableOpacity
-            style={styles.botaoFechar}
-            onPress={onFechar}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.textoFechar}>FECHAR</Text>
-          </TouchableOpacity>
         </View>
       </View>
     </Modal>
   );
 }
 
-const styles = StyleSheet.create({
-  modalFundo: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'flex-end',
+const estilos = StyleSheet.create({
+  fundo: { flex: 1, backgroundColor: cores.veu, justifyContent: 'flex-end' },
+  folha: {
+    maxHeight: '85%',
+    backgroundColor: cores.superficie,
+    borderTopLeftRadius: raios.hero,
+    borderTopRightRadius: raios.hero,
+    borderWidth: 1,
+    borderColor: cores.borda,
+    paddingHorizontal: margemTela,
+    paddingTop: 20,
+    paddingBottom: 24,
   },
-
-  modalCaixa: {
-    backgroundColor: '#111111',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    padding: 20,
-    maxHeight: '80%',
-  },
-
-  tituloModal: {
-    color: '#FECF2B',
-    fontSize: 18,
-    fontWeight: 'bold',
-    letterSpacing: 1,
+  cabecalho: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 16,
   },
-
-  loader: {
-    marginVertical: 20,
-  },
-
-  listaModal: {
-    maxHeight: 360,
-  },
-
-  itemModal: {
-    backgroundColor: '#1A1A1A',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 10,
-  },
-
-  nomeExercicio: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-
-  grupoMuscular: {
-    color: '#FECF2B',
+  titulo: {
+    color: cores.primaria,
     fontSize: 13,
-    fontWeight: '600',
-    marginTop: 4,
+    fontWeight: '700',
+    letterSpacing: 1.2,
   },
-
-  vazio: {
-    color: '#777777',
-    fontSize: 14,
-    textAlign: 'center',
-    marginVertical: 20,
-  },
-
-  botaoFechar: {
-    paddingVertical: 16,
+  fechar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: cores.superficieElevada,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-
-  textoFechar: {
-    color: '#FECF2B',
-    fontSize: 12,
-    fontWeight: 'bold',
-    letterSpacing: 0.8,
-  },
+  lista: { flexGrow: 0 },
 });
