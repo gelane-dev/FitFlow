@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "app-academia-mobile",
-    "slug": "app-academia-mobile",
+    "name": "frontend",
+    "slug": "frontend",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -35,7 +35,8 @@
       ],
       "expo-secure-store",
       "expo-font",
-      "expo-video"
+      "expo-video",
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": true,

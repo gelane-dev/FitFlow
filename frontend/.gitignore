@@ -57,7 +57,6 @@ src/components/external-link.tsx
 src/components/hint-row.tsx
 src/components/themed-text.tsx
 src/components/themed-view.tsx
-src/components/ui/
 src/components/web-badge.tsx
 
 src/constants/theme.ts
