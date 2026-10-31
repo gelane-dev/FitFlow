@@ -1,0 +1,13 @@
+{
+  "name": "fitflow-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Testes end-to-end (Playwright) do FitFlow sobre o build web do Expo — ADR-026",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1",
+    "serve": "^14.2.6"
+  }
+}
