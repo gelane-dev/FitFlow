@@ -1,9 +1,6 @@
-import os
-from dotenv import load_dotenv
+from app.core.config import obter_obrigatoria
 
-load_dotenv()
-
-DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASE_URL = obter_obrigatoria("DATABASE_URL")
 
 from app.models import Base
 from logging.config import fileConfig
