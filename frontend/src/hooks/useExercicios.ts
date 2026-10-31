@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { buscarExercicios } from '@/services/exercicio.service';
 import { ErroApi } from '@/types/api.types';
@@ -14,8 +14,8 @@ export function useExercicios(paginaSolicitada: number) {
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function carregarExercicios() {
+  const carregarExercicios = useCallback(async () => {
+    {
       try {
         setCarregando(true);
         setErro(null);
@@ -43,9 +43,11 @@ export function useExercicios(paginaSolicitada: number) {
         setCarregando(false);
       }
     }
-
-    carregarExercicios();
   }, [paginaSolicitada]);
+
+  useEffect(() => {
+    carregarExercicios();
+  }, [carregarExercicios]);
 
   return {
     exercicios,
@@ -55,5 +57,6 @@ export function useExercicios(paginaSolicitada: number) {
     totalPaginas,
     carregando,
     erro,
+    recarregar: carregarExercicios,
   };
 }

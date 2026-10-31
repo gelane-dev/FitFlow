@@ -1,10 +1,10 @@
 import axios from 'axios';
 import { useState } from 'react';
-import { Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 
 import { enviarVideoExercicio } from '@/services/exercicio.service';
 import { ErroApi } from '@/types/api.types';
+import { mostrarAlerta } from '@/utils/alerta';
 
 interface VideoExercicio {
   uri: string;
@@ -77,7 +77,7 @@ export function useVideoExercicio() {
     const sucesso = await enviarVideo(id, video);
 
     if (!sucesso) {
-      Alert.alert(
+      mostrarAlerta(
         'Erro',
         erro || 'Não foi possível enviar o vídeo.'
       );
@@ -89,7 +89,7 @@ export function useVideoExercicio() {
       await aoAtualizar();
     }
 
-    Alert.alert(
+    mostrarAlerta(
       'Vídeo atualizado',
       'O vídeo do exercício foi atualizado com sucesso.'
     );

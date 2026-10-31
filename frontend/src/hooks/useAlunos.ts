@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { buscarAlunos } from '@/services/aluno.service';
 import { ErroApi } from '@/types/api.types';
@@ -10,8 +10,8 @@ export function useAlunos() {
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function carregarAlunos() {
+  const carregarAlunos = useCallback(async () => {
+    {
       try {
         setCarregando(true);
         setErro(null);
@@ -34,13 +34,16 @@ export function useAlunos() {
         setCarregando(false);
       }
     }
-
-    carregarAlunos();
   }, []);
+
+  useEffect(() => {
+    carregarAlunos();
+  }, [carregarAlunos]);
 
   return {
     alunos,
     carregando,
     erro,
+    recarregar: carregarAlunos,
   };
 }

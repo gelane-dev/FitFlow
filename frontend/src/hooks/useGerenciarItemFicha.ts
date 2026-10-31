@@ -12,9 +12,14 @@ export function useGerenciarItemFicha() {
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
+  /**
+   * Cria o item. Devolve o item criado, `null` (erro da API, já em `erro`) ou `'rede'` quando a
+   * requisição falhou sem resposta: o servidor pode ter gravado, então quem chama deve recarregar
+   * a lista antes de deixar reenviar (QA P-E). Falha de rede não vira `erro`/alerta.
+   */
   async function criar(
     dados: ItemFichaCriar
-  ): Promise<ItemFicha | null> {
+  ): Promise<ItemFicha | 'rede' | null> {
     try {
       setCarregando(true);
       setErro(null);
@@ -22,6 +27,10 @@ export function useGerenciarItemFicha() {
       return await criarItemFicha(dados);
     } catch (erro) {
       if (axios.isAxiosError<ErroApi>(erro)) {
+        if (!erro.response) {
+          return 'rede';
+        }
+
         setErro(
           erro.response?.data?.detail ||
             'Erro ao adicionar exercício.'

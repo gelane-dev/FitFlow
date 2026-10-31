@@ -1,10 +1,10 @@
 import axios from 'axios';
 import { useState } from 'react';
-import { Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 
 import { enviarImagemExercicio } from '@/services/exercicio.service';
 import { ErroApi } from '@/types/api.types';
+import { mostrarAlerta } from '@/utils/alerta';
 
 interface ImagemExercicio {
   uri: string;
@@ -75,7 +75,7 @@ export function useImagemExercicio() {
     const sucesso = await enviarImagem(id, imagem);
 
     if (!sucesso) {
-      Alert.alert(
+      mostrarAlerta(
         'Erro',
         erro || 'Não foi possível enviar a imagem.'
       );
@@ -87,7 +87,7 @@ export function useImagemExercicio() {
       await aoAtualizar();
     }
 
-    Alert.alert(
+    mostrarAlerta(
       'Imagem atualizada',
       'A imagem do exercício foi atualizada com sucesso.'
     );

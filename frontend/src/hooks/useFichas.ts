@@ -5,7 +5,7 @@ import { buscarFichas } from '@/services/ficha.service';
 import { ErroApi } from '@/types/api.types';
 import { FichaLista } from '@/types/ficha.types';
 
-export function useFichas() {
+export function useFichas(alunoId?: number) {
   const [fichas, setFichas] = useState<FichaLista[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
@@ -15,7 +15,7 @@ export function useFichas() {
       setCarregando(true);
       setErro(null);
 
-      const dados = await buscarFichas();
+      const dados = await buscarFichas(alunoId);
 
       setFichas(dados);
     } catch (erro) {
@@ -32,7 +32,7 @@ export function useFichas() {
     } finally {
       setCarregando(false);
     }
-  }, []);
+  }, [alunoId]);
 
   useEffect(() => {
     carregarFichas();

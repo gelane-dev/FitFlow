@@ -10,11 +10,11 @@ export function useItensTreino(treinoId: number) {
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
 
-  const carregarItens = useCallback(async () => {
+  const carregarItens = useCallback(async (): Promise<ItemFicha[] | null> => {
     if (!treinoId) {
       setCarregando(false);
 
-      return;
+      return null;
     }
 
     try {
@@ -24,6 +24,8 @@ export function useItensTreino(treinoId: number) {
       const dados = await buscarItensTreino(treinoId);
 
       setItens(dados);
+
+      return dados;
     } catch (erro) {
       if (axios.isAxiosError<ErroApi>(erro)) {
         setErro(
@@ -31,10 +33,12 @@ export function useItensTreino(treinoId: number) {
             'Erro ao carregar exercícios do treino.'
         );
 
-        return;
+        return null;
       }
 
       setErro('Ocorreu um erro inesperado.');
+
+      return null;
     } finally {
       setCarregando(false);
     }

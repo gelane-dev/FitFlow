@@ -3,14 +3,20 @@ import axios from 'axios';
 import { api } from './api';
 
 import {
+  FichaAtualizar,
   FichaCriar,
   FichaLista,
   ItemFicha,
+  ItemFichaAtualizar,
   ItemFichaCriar,
 } from '@/types/ficha.types';
 
-export async function buscarFichas(): Promise<FichaLista[]> {
-  const resposta = await api.get<FichaLista[]>('/ficha');
+export async function buscarFichas(
+  alunoId?: number
+): Promise<FichaLista[]> {
+  const resposta = await api.get<FichaLista[]>('/ficha', {
+    params: alunoId ? { aluno_id: alunoId } : undefined,
+  });
 
   return resposta.data;
 }
@@ -32,6 +38,15 @@ export async function criarFicha(
     '/ficha',
     dados
   );
+
+  return resposta.data;
+}
+
+export async function atualizarFicha(
+  id: number,
+  dados: FichaAtualizar
+): Promise<FichaLista> {
+  const resposta = await api.put<FichaLista>(`/ficha/${id}`, dados);
 
   return resposta.data;
 }
@@ -61,6 +76,15 @@ export async function criarItemFicha(
     '/ficha/itens',
     dados
   );
+
+  return resposta.data;
+}
+
+export async function atualizarItemFicha(
+  id: number,
+  dados: ItemFichaAtualizar
+): Promise<ItemFicha> {
+  const resposta = await api.put<ItemFicha>(`/ficha/item/${id}`, dados);
 
   return resposta.data;
 }
