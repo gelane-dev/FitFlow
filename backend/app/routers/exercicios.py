@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..schemas.exercicio import ExercicioCriar, ExercicioAtualizar, ExercicioResposta, ExerciciosListaResposta
 from ..models import Exercicio
-from ..core.seguranca import verificar_professor
+from ..core.seguranca import verificar_professor, verificar_token
 from ..services.cloudinary import upload_imagem, upload_video, deletar_video, deletar_imagem
 from pathlib import Path
 import math
@@ -30,7 +30,7 @@ def cria_exercicio(dados: ExercicioCriar, professor=Depends(verificar_professor)
 
 
 @router.get("/exercicios", response_model=ExerciciosListaResposta)
-def listar_exercicios(pagina: int = Query(1, ge=1), limite: int = Query(50, ge=1, le=100), grupo_muscular: str | None = None, busca: str | None = None, db: Session = Depends(get_db)):
+def listar_exercicios(pagina: int = Query(1, ge=1), limite: int = Query(50, ge=1, le=100), grupo_muscular: str | None = None, busca: str | None = None, usuario=Depends(verificar_token), db: Session = Depends(get_db)):
    
     offset = (pagina - 1) * limite
 

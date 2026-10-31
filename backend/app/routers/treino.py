@@ -1,12 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload, contains_eager
 
 from ..database import get_db
 from ..core.seguranca import verificar_professor, verificar_aluno
-from ..schemas.treino import TreinoCriar, TreinoResposta, AtualizarTreino, TreinoDiaResposta, ItemTreinoDiaResposta, TreinoDiaResposta
+from ..schemas.treino import TreinoCriar, TreinoResposta, AtualizarTreino, TreinoDiaResposta, OrdenarItens
+from ..schemas.treino import ItemTreinoDiaResposta
+from ..services.respostas import montar_item_treino
+from ..services.fichas import contar_itens_por_treino
 from ..models import Ficha, Treino, ItemFicha, Exercicio
-from datetime import datetime
+from ..core.tempo import agora
 from ..enums.dia_semana import DiaSemana
 
 router = APIRouter()
@@ -72,8 +75,19 @@ def listar_treinos(ficha_id: int, professor=Depends(verificar_professor), db: Se
     treinos = db.scalars(
         select(Treino).where(Treino.ficha_id == ficha_id, Treino.ativo.is_(True)).order_by(Treino.ordem)
     ).all()
-    
-    return treinos
+    totais = contar_itens_por_treino(db, [treino.id for treino in treinos])
+
+    return [
+        TreinoResposta(
+            id=treino.id,
+            ficha_id=treino.ficha_id,
+            nome=treino.nome,
+            dia_semana=treino.dia_semana,
+            ordem=treino.ordem,
+            total_itens=totais.get(treino.id, 0),
+        )
+        for treino in treinos
+    ]
 
 @router.put("/treino/{id}", response_model=TreinoResposta)
 def atualizar_treino(id: int, dados: AtualizarTreino, professor=Depends(verificar_professor), db: Session = Depends(get_db)):
@@ -117,8 +131,15 @@ def atualizar_treino(id: int, dados: AtualizarTreino, professor=Depends(verifica
 
     db.commit()
     db.refresh(treino)
-    
-    return treino
+
+    return TreinoResposta(
+        id=treino.id,
+        ficha_id=treino.ficha_id,
+        nome=treino.nome,
+        dia_semana=treino.dia_semana,
+        ordem=treino.ordem,
+        total_itens=contar_itens_por_treino(db, [treino.id]).get(treino.id, 0),
+    )
 
 @router.delete("/treino/{id}")
 def deletar_treino(id: int, professor=Depends(verificar_professor), db: Session = Depends(get_db)):
@@ -176,44 +197,25 @@ def treinos_dia(ficha_id: int, aluno=Depends(verificar_aluno), db: Session = Dep
             detail="Essa ficha não é sua"
         )
 
-    dia_atual = list(DiaSemana)[datetime.now().weekday()]
+    dia_atual = list(DiaSemana)[agora().weekday()]
 
     treinos = db.scalars(
-     select(Treino).where(Treino.ficha_id == ficha.id, Treino.ativo.is_(True), Treino.dia_semana == dia_atual)).order_by(Treino.ordem).all()
+     select(Treino).where(Treino.ficha_id == ficha.id, Treino.ativo.is_(True), Treino.dia_semana == dia_atual).order_by(Treino.ordem)).all()
     
-    if not treinos:
-        raise HTTPException(
-            status_code=404,
-            detail="Você não tem treinos salvos"
-        )
-    
+    # Uma consulta para os itens de todos os treinos do dia, já com o exercício (evita N+1)
+    itens_por_treino = {treino.id: [] for treino in treinos}
+    itens_ativos = db.scalars(
+        select(ItemFicha).join(Exercicio).options(contains_eager(ItemFicha.exercicio)).where(
+            ItemFicha.treino_id.in_(itens_por_treino), ItemFicha.ativo.is_(True), Exercicio.ativo.is_(True)
+        ).order_by(ItemFicha.ordem)).all()
+    for item in itens_ativos:
+        itens_por_treino[item.treino_id].append(item)
+
     treinos_resposta = []
 
     for treino in treinos:
-        item_treino = db.scalars(
-        select(ItemFicha).join(Exercicio).where(ItemFicha.treino_id == treino.id, ItemFicha.ativo.is_(True), Exercicio.ativo.is_(True)).order_by(ItemFicha.ordem)).all()
-        
-        itens_resposta =[]
-        
-        for item in item_treino:
-            item_resposta = ItemTreinoDiaResposta(id=item.id,
-                ficha_id=item.ficha_id,
-                treino_id=item.treino_id,
-                exercicio_id=item.exercicio_id,
-                series=item.series,
-                repeticoes=item.repeticoes,
-                carga=item.carga,
-                descanso=item.descanso,
-                ordem=item.ordem,
-                nome=item.exercicio.nome,
-                descricao=item.exercicio.descricao,
-                grupo_muscular=item.exercicio.grupo_muscular,
-                imagem=item.exercicio.imagem,
-                video=item.exercicio.video
-            )
-            
-            itens_resposta.append(item_resposta)
-    
+        itens_resposta = [montar_item_treino(item) for item in itens_por_treino[treino.id]]
+
         treino_resposta = TreinoDiaResposta(
             id=treino.id,
             ficha_id=treino.ficha_id,
@@ -226,3 +228,69 @@ def treinos_dia(ficha_id: int, aluno=Depends(verificar_aluno), db: Session = Dep
         treinos_resposta.append(treino_resposta)
     
     return treinos_resposta
+
+@router.put("/treino/{treino_id}/itens/ordem", response_model=list[ItemTreinoDiaResposta])
+def reordenar_itens(treino_id: int, dados: OrdenarItens, professor=Depends(verificar_professor), db: Session = Depends(get_db)):
+
+    treino = db.scalar(
+        select(Treino).where(Treino.id == treino_id, Treino.ativo.is_(True)))
+
+    if not treino:
+        raise HTTPException(
+            status_code=404,
+            detail="Treino não encontrado"
+        )
+
+    ficha = db.scalar(
+        select(Ficha).where(Ficha.id == treino.ficha_id, Ficha.ativo.is_(True)))
+
+    if not ficha:
+        raise HTTPException(
+            status_code=404,
+            detail="Ficha não encontrada"
+        )
+
+    if ficha.professor_id != professor.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Você não tem permissão para alterar esta ficha de treino"
+        )
+
+    itens = db.scalars(
+        select(ItemFicha).where(ItemFicha.treino_id == treino.id, ItemFicha.ativo.is_(True))).all()
+    por_id = {item.id: item for item in itens}
+
+    novas = {}
+    for pedido in dados.itens:
+        if pedido.id not in por_id:
+            raise HTTPException(
+                status_code=404,
+                detail="Item da ficha não encontrado"
+            )
+        if pedido.id in novas:
+            raise HTTPException(
+                status_code=400,
+                detail="Ordens duplicadas"
+            )
+        novas[pedido.id] = pedido.ordem
+
+    # Ordem final de todos os itens ativos (os não enviados mantêm a atual)
+    finais = [novas.get(item.id, item.ordem) for item in itens]
+
+    if len(set(finais)) != len(finais):
+        raise HTTPException(
+            status_code=400,
+            detail="Ordens duplicadas"
+        )
+
+    for item_id, ordem in novas.items():
+        por_id[item_id].ordem = ordem
+
+    db.commit()
+
+    ordenados = db.scalars(
+        select(ItemFicha).join(Exercicio).options(contains_eager(ItemFicha.exercicio)).where(
+            ItemFicha.treino_id == treino.id, ItemFicha.ativo.is_(True), Exercicio.ativo.is_(True)
+        ).order_by(ItemFicha.ordem)).all()
+
+    return [montar_item_treino(item) for item in ordenados]

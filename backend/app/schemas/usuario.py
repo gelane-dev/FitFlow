@@ -12,6 +12,10 @@ class UsuarioCriar(UsuarioBase):
 
 class UsuarioResposta(UsuarioBase):
     id: int
+    tipo: str
+    foto: str | None = None
+
+    model_config = ConfigDict(from_attributes=True)
 
 class UsuarioLogin(BaseModel):
     email: EmailStr

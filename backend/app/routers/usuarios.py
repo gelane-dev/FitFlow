@@ -1,8 +1,8 @@
+import logging
 from pathlib import Path
-import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -17,6 +17,7 @@ from ..schemas.usuario import (
     SenhaAtualizar,
 )
 from ..models import User, Professor, Aluno
+from ..services.cloudinary import upload_imagem, deletar_imagem
 from ..core.seguranca import (
     criar_hash,
     verificar_senha,
@@ -26,6 +27,27 @@ from ..core.seguranca import (
 )
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+
+
+def _foto_atual(usuario: User) -> tuple[str | None, Path | None]:
+    """Guarda o que apagar depois do commit: public_id do Cloudinary ou caminho local legado."""
+    if usuario.foto_public_id:
+        return usuario.foto_public_id, None
+    if usuario.foto and not usuario.foto.startswith("http"):
+        return None, Path(usuario.foto)
+    return None, None
+
+
+def _apagar_foto_antiga(public_id: str | None, caminho: Path | None):
+    """Remove a foto antiga já substituída; falha aqui só é logada e não quebra a resposta."""
+    try:
+        if public_id:
+            deletar_imagem(public_id)
+        elif caminho and caminho.exists():
+            caminho.unlink()
+    except Exception:
+        logger.exception("Falha ao apagar a foto antiga do perfil")
 
 
 @router.get("/alunos", response_model=list[AlunoResposta])
@@ -35,6 +57,16 @@ def listar_alunos(professor=Depends(verificar_professor), db: Session = Depends(
     ).all()
 
     return alunos
+
+
+@router.get("/alunos/{aluno_id}", response_model=AlunoResposta)
+def obter_aluno(aluno_id: int, professor=Depends(verificar_professor), db: Session = Depends(get_db)):
+    aluno = db.scalar(select(Aluno).where(Aluno.id == aluno_id))
+
+    if not aluno:
+        raise HTTPException(status_code=404, detail="Aluno não encontrado")
+
+    return aluno
 
 
 @router.get("/perfil", response_model=UsuarioResposta)
@@ -238,7 +270,7 @@ async def mudar_foto(arquivo: UploadFile = File(), verificar: dict = Depends(ver
 
     extensoes_permitidas = [".jpg", ".jpeg", ".png"]
 
-    if extensao not in extensoes_permitidas:
+    if extensao not in extensoes_permitidas or arquivo.content_type not in ("image/jpeg", "image/png"):
         raise HTTPException(
             status_code=400,
             detail="Formato de imagem não permitido"
@@ -254,25 +286,17 @@ async def mudar_foto(arquivo: UploadFile = File(), verificar: dict = Depends(ver
             detail="A imagem deve ter no máximo 5 MB"
         )
 
-    pasta = Path("uploads/perfis")
-    pasta.mkdir(parents=True, exist_ok=True)
+    await arquivo.seek(0)
+    url, public_id = upload_imagem(arquivo)
 
-    nome_arquivo = f"{uuid.uuid4().hex[:12]}{extensao}"
+    antiga = _foto_atual(usuario)
 
-    caminho = pasta / nome_arquivo
-
-    with open(caminho, "wb") as imagem:
-        imagem.write(imagem_bytes)
-
-    if usuario.foto:
-        caminho_antigo = Path(usuario.foto)
-
-        if caminho_antigo.exists():
-            caminho_antigo.unlink()
-
-    usuario.foto = str(caminho)
+    usuario.foto = url
+    usuario.foto_public_id = public_id
 
     db.commit()
+
+    _apagar_foto_antiga(*antiga)
 
     return {"mensagem": "Foto de perfil atualizada com sucesso"}
 
@@ -296,6 +320,9 @@ def exibir_foto(verificar: dict = Depends(verificar_token), db: Session = Depend
             status_code=404,
             detail="Foto de perfil não encontrada"
         )
+
+    if usuario.foto.startswith("http"):
+        return RedirectResponse(usuario.foto, status_code=307)
 
     caminho = Path(usuario.foto)
 
@@ -328,18 +355,13 @@ def remover_foto(verificar: dict = Depends(verificar_token), db: Session = Depen
             detail="Foto de perfil não encontrada"
         )
 
-    caminho = Path(usuario.foto)
-
-    if not caminho.exists():
-        raise HTTPException(
-            status_code=404,
-            detail="Arquivo da foto não encontrado"
-        )
-
-    caminho.unlink()
+    antiga = _foto_atual(usuario)
 
     usuario.foto = None
+    usuario.foto_public_id = None
 
     db.commit()
+
+    _apagar_foto_antiga(*antiga)
 
     return {"mensagem": "Foto de perfil removida com sucesso"}

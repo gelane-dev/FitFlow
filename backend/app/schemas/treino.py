@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from ..enums.dia_semana import DiaSemana
 
 class TreinoCriar(BaseModel):
@@ -13,6 +13,7 @@ class TreinoResposta(BaseModel):
     nome: str
     dia_semana: DiaSemana
     ordem: int
+    total_itens: int = 0
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -44,3 +45,10 @@ class TreinoDiaResposta(BaseModel):
     dia_semana: DiaSemana
     ordem: int
     itens: list[ItemTreinoDiaResposta]
+
+class OrdemItem(BaseModel):
+    id: int
+    ordem: int = Field(ge=1)
+
+class OrdenarItens(BaseModel):
+    itens: list[OrdemItem] = Field(min_length=1)
