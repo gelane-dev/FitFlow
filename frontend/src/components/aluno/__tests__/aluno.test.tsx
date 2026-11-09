@@ -67,8 +67,8 @@ describe('SemanaPontos', () => {
 
 describe('GraficoEvolucao', () => {
   const pontos = [
-    { data: '2026-10-01', carga_maxima: 40, volume: 400, registros: 3 },
-    { data: '2026-10-08', carga_maxima: 50, volume: 500, registros: 3 },
+    { data: '2026-10-01', carga_maxima: 40, volume: 400, registros: 3, repeticoes_maximas: 10, series: 3 },
+    { data: '2026-10-08', carga_maxima: 50, volume: 500, registros: 3, repeticoes_maximas: 10, series: 3 },
   ];
 
   it('destaca o valor mais recente e troca ao tocar numa barra', async () => {

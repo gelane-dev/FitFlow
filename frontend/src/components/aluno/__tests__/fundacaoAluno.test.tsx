@@ -185,8 +185,8 @@ describe('PreviaTreino (P-15)', () => {
 
 describe('GraficoEvolucao: largura total (P-07)', () => {
   const pontos = [
-    { data: '2026-10-01', carga_maxima: 40, volume: 400, registros: 3 },
-    { data: '2026-10-08', carga_maxima: 50, volume: 500, registros: 3 },
+    { data: '2026-10-01', carga_maxima: 40, volume: 400, registros: 3, repeticoes_maximas: 10, series: 3 },
+    { data: '2026-10-08', carga_maxima: 50, volume: 500, registros: 3, repeticoes_maximas: 10, series: 3 },
   ];
 
   it('as colunas dividem a largura medida com onLayout', async () => {
@@ -207,6 +207,8 @@ describe('GraficoEvolucao: largura total (P-07)', () => {
       carga_maxima: 10 + i,
       volume: 100,
       registros: 1,
+      repeticoes_maximas: 10,
+      series: 1,
     }));
 
     await renderizar(<GraficoEvolucao pontos={muitos} metrica="carga_maxima" />);

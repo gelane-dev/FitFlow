@@ -54,6 +54,8 @@ def test_upgrade_downgrade_upgrade_e_check_em_postgres(banco_limpo):
 
     _alembic("upgrade", "head")
     assert "sessoes_treino" in inspect(banco_limpo).get_table_names()
+    indices = {i["name"]: i["column_names"] for i in inspect(banco_limpo).get_indexes("historicos_execucao")}
+    assert indices["ix_historicos_execucao_aluno_data"] == ["aluno_id", "data_execucao"]
 
     _alembic("downgrade", "base")
     assert inspect(banco_limpo).get_table_names() == ["alembic_version"]
@@ -72,7 +74,24 @@ def test_cadeia_de_migracoes_tem_uma_unica_head():
     config.set_main_option("script_location", str(BACKEND / "alembic"))
     script = ScriptDirectory.from_config(config)
 
-    assert script.get_heads() == ["f5a6b7c8d9e0"]
+    assert script.get_heads() == ["a6b7c8d9e0f1"]
     # as migrações das fases 3-5 se encadeiam após b1c2d3e4f5a6
-    cadeia = [r.revision for r in script.walk_revisions()][:5]
-    assert cadeia == ["f5a6b7c8d9e0", "e4f5a6b7c8d9", "d3e4f5a6b7c8", "c2d3e4f5a6b7", "b1c2d3e4f5a6"]
+    cadeia = [r.revision for r in script.walk_revisions()][:6]
+    assert cadeia == ["a6b7c8d9e0f1", "f5a6b7c8d9e0", "e4f5a6b7c8d9", "d3e4f5a6b7c8", "c2d3e4f5a6b7", "b1c2d3e4f5a6"]
+
+
+def test_migracao_do_indice_de_historico_encadeia_em_f5a6b7c8d9e0():
+    from alembic.config import Config
+    from alembic.script import ScriptDirectory
+
+    config = Config(str(BACKEND / "alembic.ini"))
+    config.set_main_option("script_location", str(BACKEND / "alembic"))
+    revisao = ScriptDirectory.from_config(config).get_revision("a6b7c8d9e0f1")
+    assert revisao.down_revision == "f5a6b7c8d9e0"
+
+
+def test_model_declara_o_indice_de_historico():
+    from app.models import HistoricoExecucao
+
+    indices = {i.name: [c.name for c in i.columns] for i in HistoricoExecucao.__table__.indexes}
+    assert indices["ix_historicos_execucao_aluno_data"] == ["aluno_id", "data_execucao"]

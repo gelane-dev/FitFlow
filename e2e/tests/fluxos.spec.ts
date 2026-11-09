@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 
 // Os cenários formam uma sequência: o E2E-01 cria o aluno que os demais usam.
 test.describe.configure({ mode: 'serial' });
@@ -483,5 +483,676 @@ test('E2E-10 navegação por abas: professor vê o painel, troca de aba e sai do
 
   await expect(page.getByText('ENTRAR', { exact: true }).filter({ visible: true })).toBeVisible();
   await expect(page.getByTestId('barra-abas')).toHaveCount(0);
+  semDialogosPendentes();
+});
+
+// ---------------------------------------------------------------------------------------------
+// E2E-11 — aba Evolução (EV-04). Dados criados pelo próprio cenário (aluno novo + aluno sem dados),
+// com datas relativas a "hoje" e valores calculados à mão (veja os comentários de cada bloco).
+// ---------------------------------------------------------------------------------------------
+
+type Metodo = 'GET' | 'POST';
+async function chamarApi(
+  request: APIRequestContext,
+  metodo: Metodo,
+  caminho: string,
+  opcoes: { token?: string; dados?: unknown } = {},
+) {
+  const r = await request.fetch(`${process.env.E2E_API_URL}${caminho}`, {
+    method: metodo,
+    headers: opcoes.token ? { Authorization: `Bearer ${opcoes.token}` } : undefined,
+    data: opcoes.dados,
+  });
+  const texto = await r.text();
+  return { status: r.status(), corpo: texto ? JSON.parse(texto) : null };
+}
+async function loginApi(request: APIRequestContext, email: string, senha: string): Promise<string> {
+  const r = await chamarApi(request, 'POST', '/login', { dados: { email, senha } });
+  expect(r.status, `login de ${email}`).toBe(200);
+  return r.corpo.access_token;
+}
+
+const SUFIXO_EVO = Date.now();
+const alunoEvo = { nome: `Aluno Evo ${SUFIXO_EVO}`, email: `aluno.evo.${SUFIXO_EVO}@example.com` };
+const alunoVazio = { nome: `Aluno Vazio ${SUFIXO_EVO}`, email: `aluno.vazio.${SUFIXO_EVO}@example.com` };
+
+// Registros (dias antes de hoje, séries, repetições, carga). Contas à mão, por dia:
+//  Supino: -40 → 3×10×40 = 1200 | -20 → 3×8×50 + 2×12×45 = 1200 + 1080 = 2280 (carga 50, reps 12, séries 5, 2 registros)
+//          -10 → 4×6×55 = 1320 | -3 → 3×10×55 = 1650 | 0 → 3×12×52,5 = 1890
+//  Remada: -7 e -6 → 3×10×30 = 900 cada (valores iguais; -7 fica fora de "7 dias", -6 dentro)
+//  Rosca:  -100 → 3×10×20 = 600 (um único ponto; fora de "3 meses", dentro de "6 meses")
+const REGISTROS_EVO = {
+  supino: [
+    [-40, 3, 10, 40],
+    [-20, 3, 8, 50],
+    [-20, 2, 12, 45],
+    [-10, 4, 6, 55],
+    [-3, 3, 10, 55],
+    [0, 3, 12, 52.5],
+  ],
+  remada: [
+    [-7, 3, 10, 30],
+    [-6, 3, 10, 30],
+  ],
+  rosca: [[-100, 3, 10, 20]],
+} as const;
+// Avaliações (dias antes de hoje, peso, gordura, massa muscular, observação); altura 1,80 em todas.
+// IMC = peso / 3,24: 80 → 24,69 | 78 → 24,07 | 76,5 → 23,61
+const AVALIACOES_EVO = [
+  [-60, 80, 25, 40, 'Inicial E2E'],
+  [-30, 78, null, 41, null],
+  [-5, 76.5, 22, null, null],
+] as const;
+
+const PONTOS_SUPINO = [
+  { data: -40, carga_maxima: 40, volume: 1200, registros: 1, repeticoes_maximas: 10, series: 3 },
+  { data: -20, carga_maxima: 50, volume: 2280, registros: 2, repeticoes_maximas: 12, series: 5 },
+  { data: -10, carga_maxima: 55, volume: 1320, registros: 1, repeticoes_maximas: 6, series: 4 },
+  { data: -3, carga_maxima: 55, volume: 1650, registros: 1, repeticoes_maximas: 10, series: 3 },
+  { data: 0, carga_maxima: 52.5, volume: 1890, registros: 1, repeticoes_maximas: 12, series: 3 },
+].map((p) => ({ ...p, data: hojeIso(p.data) }));
+
+const idsEvo: { supino: number; remada: number; rosca: number; avaliacoes: number[]; alunoVazioToken: string } = {
+  supino: 0,
+  remada: 0,
+  rosca: 0,
+  avaliacoes: [],
+  alunoVazioToken: '',
+};
+
+async function semearEvolucao(request: APIRequestContext) {
+  const prof = await loginApi(request, professor().email, professor().senha);
+  for (const a of [alunoEvo, alunoVazio]) {
+    const r = await chamarApi(request, 'POST', '/cadastro', {
+      dados: { nome: a.nome, email: a.email, senha: SENHA_ALUNO, telefone: '11933334444', data_nascimento: '1990-01-01' },
+    });
+    expect(r.status).toBe(200);
+  }
+  const alunos = (await chamarApi(request, 'GET', '/alunos', { token: prof })).corpo as { id: number; nome: string }[];
+  const alunoId = alunos.find((a) => a.nome === alunoEvo.nome)!.id;
+
+  const exercicio = async (nome: string, grupo: string) => {
+    const r = await chamarApi(request, 'POST', '/exercicios', {
+      token: prof,
+      dados: { nome, descricao: `Descrição de ${nome}`, grupo_muscular: grupo },
+    });
+    expect(r.status).toBe(200);
+    return r.corpo.id as number;
+  };
+  idsEvo.supino = await exercicio(`Supino Evo ${SUFIXO_EVO}`, 'Peito');
+  idsEvo.remada = await exercicio(`Remada Evo ${SUFIXO_EVO}`, 'Costas');
+  idsEvo.rosca = await exercicio(`Rosca Evo ${SUFIXO_EVO}`, 'Bíceps');
+
+  const ficha = await chamarApi(request, 'POST', '/ficha', {
+    token: prof,
+    dados: { aluno_id: alunoId, nome: `Ficha Evo ${SUFIXO_EVO}`, data_inicio: hojeIso(-120), data_fim: hojeIso(30) },
+  });
+  expect(ficha.status).toBe(200);
+  const treino = await chamarApi(request, 'POST', '/treino', {
+    token: prof,
+    dados: { ficha_id: ficha.corpo.id, nome: 'Treino Evo', dia_semana: 'segunda', ordem: 1 },
+  });
+  expect(treino.status).toBe(200);
+
+  const aluno = await loginApi(request, alunoEvo.email, SENHA_ALUNO);
+  const porExercicio = { supino: idsEvo.supino, remada: idsEvo.remada, rosca: idsEvo.rosca } as const;
+  let ordem = 1;
+  for (const chave of ['supino', 'remada', 'rosca'] as const) {
+    const item = await chamarApi(request, 'POST', '/ficha/itens', {
+      token: prof,
+      dados: {
+        ficha_id: ficha.corpo.id,
+        treino_id: treino.corpo.id,
+        exercicio_id: porExercicio[chave],
+        series: 3,
+        repeticoes: 10,
+        carga: 20,
+        descanso: 60,
+        ordem: ordem++,
+      },
+    });
+    expect(item.status).toBe(200);
+    for (const [dias, series, reps, carga] of REGISTROS_EVO[chave]) {
+      const r = await chamarApi(request, 'POST', '/ficha/treino', {
+        token: aluno,
+        dados: {
+          item_ficha_id: item.corpo.id,
+          data_execucao: `${hojeIso(dias)}T12:00:00`,
+          series_realizadas: series,
+          repeticoes_realizadas: reps,
+          carga_utilizada: carga,
+          observacao: null,
+        },
+      });
+      expect(r.status).toBe(200);
+    }
+  }
+  for (const [dias, peso, gordura, massa, observacao] of AVALIACOES_EVO) {
+    const r = await chamarApi(request, 'POST', `/alunos/${alunoId}/avaliacoes`, {
+      token: prof,
+      dados: {
+        data_avaliacao: `${hojeIso(dias)}T09:00:00`,
+        peso,
+        altura: 1.8,
+        percentual_gordura: gordura,
+        massa_muscular: massa,
+        observacao,
+      },
+    });
+    expect(r.status).toBe(200);
+    idsEvo.avaliacoes.push(r.corpo.id);
+  }
+  idsEvo.alunoVazioToken = await loginApi(request, alunoVazio.email, SENHA_ALUNO);
+  return { prof, aluno, alunoId };
+}
+
+const vis = (page: Page, id: string) => page.getByTestId(id).filter({ visible: true });
+const regexValor = (numero: string, unidade: string) => new RegExp(`^${numero}\\s*${unidade}$`);
+
+async function abrirEvolucao(page: Page) {
+  await irParaAba(page, 'Evolução');
+  await expect(page).toHaveURL(/\/aluno\/evolucao$/);
+  await expect(vis(page, 'tela-evolucao')).toBeVisible();
+}
+/** Contém o valor (os indicadores "Último × anterior" têm rótulo e data além do valor). */
+const contemValor = (numero: string, unidade: string) => new RegExp(`${numero}\\s*${unidade}`);
+
+/** Confere o valor/data do ponto que o aluno tocou no gráfico (leitura embutida no gráfico). */
+async function esperarSelecao(page: Page, grafico: string, valor: RegExp, data: string) {
+  await expect(page.getByTestId(`${grafico}-valor`)).toHaveText(valor);
+  await expect(page.getByTestId(`${grafico}-data`)).toHaveText(data);
+}
+
+/** Confere o valor atual e a data no cabeçalho do cartão (uma vez só, sem repetir no gráfico). */
+async function esperarAtual(page: Page, base: string, valor: RegExp, data: string) {
+  await expect(vis(page, `${base}-atual`)).toHaveText(valor);
+  await expect(vis(page, `${base}-data`)).toHaveText(data);
+}
+
+/** Alternador interno da aba Evolução (EV-05): Treinos | Corpo. */
+async function abrirLado(page: Page, lado: 'treinos' | 'corpo') {
+  await vis(page, `segmento-${lado}`).click();
+  // aba selecionada acessível (aria-selected na web) e conteúdo do lado escolhido visível
+  await expect(vis(page, `segmento-${lado}`)).toHaveAttribute('aria-selected', 'true');
+  await expect(vis(page, lado === 'treinos' ? 'secao-treinos' : 'secao-fisica')).toBeVisible();
+}
+
+test('E2E-11 aba Evolução: filtros, gráficos, comparações, avaliações, estados vazios e erros por seção', async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(300_000);
+  const { prof, alunoId } = await semearEvolucao(request);
+
+  await test.step('API: pontos e comparação batem com as contas à mão; períodos e janela', async () => {
+    const aluno = await loginApi(request, alunoEvo.email, SENHA_ALUNO);
+    const tudo = await chamarApi(request, 'GET', `/evolucao/exercicios/${idsEvo.supino}`, { token: aluno });
+    expect(tudo.status).toBe(200);
+    expect(tudo.corpo.periodo).toBeNull();
+    expect(tudo.corpo.pontos).toEqual(PONTOS_SUPINO);
+    expect(tudo.corpo.comparacao).toEqual({ atual: PONTOS_SUPINO[4], anterior: PONTOS_SUPINO[3] });
+
+    const quantos: Record<string, number> = { '7d': 2, '30d': 4, '3m': 5, '6m': 5, '1a': 5 };
+    for (const [periodo, n] of Object.entries(quantos)) {
+      const r = await chamarApi(request, 'GET', `/evolucao/exercicios/${idsEvo.supino}?periodo=${periodo}`, {
+        token: aluno,
+      });
+      expect(r.status).toBe(200);
+      expect(r.corpo.periodo).toBe(periodo);
+      expect(r.corpo.pontos, `Supino ${periodo}`).toEqual(PONTOS_SUPINO.slice(PONTOS_SUPINO.length - n));
+      // a comparação ignora o período
+      expect(r.corpo.comparacao).toEqual({ atual: PONTOS_SUPINO[4], anterior: PONTOS_SUPINO[3] });
+    }
+
+    // limite da janela: "7d" = hoje e os 6 dias anteriores → -6 entra, -7 fica de fora
+    const remada7 = await chamarApi(request, 'GET', `/evolucao/exercicios/${idsEvo.remada}?periodo=7d`, {
+      token: aluno,
+    });
+    expect(remada7.corpo.pontos.map((p: { data: string }) => p.data)).toEqual([hojeIso(-6)]);
+    const remada30 = await chamarApi(request, 'GET', `/evolucao/exercicios/${idsEvo.remada}?periodo=30d`, {
+      token: aluno,
+    });
+    expect(remada30.corpo.pontos).toHaveLength(2);
+
+    // período vazio: 200 com pontos [] e comparação preenchida (histórico único → anterior null)
+    const rosca3m = await chamarApi(request, 'GET', `/evolucao/exercicios/${idsEvo.rosca}?periodo=3m`, {
+      token: aluno,
+    });
+    expect(rosca3m.status).toBe(200);
+    expect(rosca3m.corpo.pontos).toEqual([]);
+    expect(rosca3m.corpo.comparacao.anterior).toBeNull();
+    expect(rosca3m.corpo.comparacao.atual).toMatchObject({ data: hojeIso(-100), carga_maxima: 20, volume: 600 });
+    const rosca6m = await chamarApi(request, 'GET', `/evolucao/exercicios/${idsEvo.rosca}?periodo=6m`, {
+      token: aluno,
+    });
+    expect(rosca6m.corpo.pontos).toHaveLength(1);
+  });
+
+  await test.step('API: 401/403/404/422 e isolamento entre alunos', async () => {
+    const vazio = idsEvo.alunoVazioToken;
+    const aluno = await loginApi(request, alunoEvo.email, SENHA_ALUNO);
+    expect((await chamarApi(request, 'GET', '/evolucao/exercicios')).status).toBe(401);
+    expect((await chamarApi(request, 'GET', '/evolucao/exercicios', { token: 'token-invalido' })).status).toBe(401);
+    // professor nas rotas do aluno e aluno nas rotas do professor → 403
+    expect((await chamarApi(request, 'GET', '/evolucao/exercicios', { token: prof })).status).toBe(403);
+    expect((await chamarApi(request, 'GET', `/alunos/${alunoId}/evolucao/exercicios`, { token: vazio })).status).toBe(
+      403,
+    );
+    // período inválido → 422 (também em caixa alta e vazio)
+    for (const valor of ['2d', '7D', '']) {
+      const r = await chamarApi(request, 'GET', `/evolucao/exercicios/${idsEvo.supino}?periodo=${valor}`, {
+        token: aluno,
+      });
+      expect(r.status, `periodo="${valor}"`).toBe(422);
+    }
+    const periodoRuimProfessor = await chamarApi(
+      request,
+      'GET',
+      `/alunos/${alunoId}/evolucao/exercicios/${idsEvo.supino}?periodo=2d`,
+      { token: prof },
+    );
+    expect(periodoRuimProfessor.status).toBe(422);
+    // aluno sem dados: listas vazias; exercício de outro aluno → 404 (sem vazar dados)
+    expect((await chamarApi(request, 'GET', '/evolucao/exercicios', { token: vazio })).corpo).toEqual([]);
+    expect((await chamarApi(request, 'GET', '/avaliacoes', { token: vazio })).corpo).toEqual([]);
+    const alheio = await chamarApi(request, 'GET', `/evolucao/exercicios/${idsEvo.supino}`, { token: vazio });
+    expect(alheio.status).toBe(404);
+    expect(alheio.corpo.detail).toBe('Sem registros para este exercício');
+    // professor: aluno inexistente → 404; aluno existente com período → 200
+    const inexistente = await chamarApi(request, 'GET', '/alunos/999999/evolucao/exercicios', { token: prof });
+    expect(inexistente.status).toBe(404);
+    expect(inexistente.corpo.detail).toBe('Aluno não encontrado');
+    const doProfessor = await chamarApi(
+      request,
+      'GET',
+      `/alunos/${alunoId}/evolucao/exercicios/${idsEvo.supino}?periodo=30d`,
+      { token: prof },
+    );
+    expect(doProfessor.status).toBe(200);
+    expect(doProfessor.corpo.pontos).toHaveLength(4);
+  });
+
+  await test.step('UI: resumo, gráfico, métricas, períodos, ponto tocado, comparação e histórico', async () => {
+    await login(page, alunoEvo.email, SENHA_ALUNO);
+    await expect(page).toHaveURL(/\/aluno$/);
+    await abrirEvolucao(page);
+
+    // Resumo: 3 exercícios, 2 de 3 com a carga em alta (Remada e Rosca; o Supino fechou abaixo do máximo), peso atual
+    await expect(vis(page, 'resumo-evolucao')).toHaveText(
+      /3\s*Exercícios\s*2 de 3\s*Cargas em alta\s*76,5\s*kg\s*Peso atual/,
+    );
+
+    // Exercício padrão = o de registro mais recente (Supino); período "Tudo"; métrica Carga
+    await expect(vis(page, 'seletor-exercicio')).toContainText(`Supino Evo ${SUFIXO_EVO}`);
+    await esperarAtual(page, 'comparacao-treino', regexValor('52,5', 'kg'), hojeBr());
+    await expect(page.getByTestId('grafico-treino-valor')).toHaveCount(0); // sem repetir o valor no gráfico
+    await expect(page.getByTestId('grafico-treino').locator('polyline')).toHaveCount(1);
+    await expect(page.locator('[data-testid^="grafico-treino-ponto-"]')).toHaveCount(5);
+    // progresso: 40 → 52,5 = +12,5 kg (12,5 / 40 = 31,25% → +31,3%)
+    await expect(vis(page, 'progresso-periodo')).toHaveText(/No período\s*↑\s*\+12,5 kg \(\+31,3%\)/);
+    // comparação (último × anterior): 52,5 × 55 → −2,5 kg (−2,5 / 55 = −4,545% → −4,5%)
+    await expect(vis(page, 'comparacao-treino-atual')).toHaveText(regexValor('52,5', 'kg'));
+    await expect(vis(page, 'comparacao-treino-anterior')).toContainText(contemValor('55', 'kg'));
+    await expect(vis(page, 'comparacao-treino-variacao')).toHaveText('−2,5 kg (−4,5%)');
+
+    // tocar num ponto: o segundo (−20 dias) mostra 50 kg naquela data
+    await vis(page, 'grafico-treino-ponto-1').click();
+    await esperarSelecao(page, 'grafico-treino', regexValor('50', 'kg'), hojeBr(-20));
+
+    // histórico de desempenho: só os 3 registros mais recentes (hoje, −3, −10), mais recente primeiro, e o link
+    // para o histórico completo sempre visível. O dia com 2 registros somados (−20: 5 séries, até 12 reps,
+    // 2280 kg) fica fora da tela e é coberto pelo passo de API.
+    const linhas = page.locator('[data-testid^="historico-ponto-"]');
+    await expect(linhas).toHaveCount(3);
+    await expect(linhas.first()).toHaveAttribute('data-testid', `historico-ponto-${hojeIso()}`);
+    await expect(linhas.nth(2)).toHaveAttribute('data-testid', `historico-ponto-${hojeIso(-10)}`);
+    await expect(vis(page, `historico-ponto-${hojeIso(-10)}`)).toHaveText(
+      new RegExp(`${hojeBr(-10)}\\s*4 séries\\s*·\\s*até 6 reps\\s*55\\s*kg\\s*vol\\.\\s*1320\\s*kg`),
+    );
+    await expect(page.getByTestId(`historico-ponto-${hojeIso(-20)}`)).toHaveCount(0);
+    await expect(vis(page, 'link-detalhe-exercicio')).toBeVisible();
+
+    // métrica Repetições: 12 × 10 → +2 reps (+20%); progresso 10 → 12
+    await vis(page, 'segmento-repeticoes_maximas').click();
+    await esperarAtual(page, 'comparacao-treino', regexValor('12', 'reps'), hojeBr());
+    await expect(vis(page, 'comparacao-treino-variacao')).toHaveText('+2 reps (+20%)');
+    await expect(vis(page, 'progresso-periodo')).toHaveText(/\+2 reps \(\+20%\)/);
+    // métrica Volume: 1890 × 1650 → +240 kg totais (240 / 1650 = 14,545% → +14,5%); progresso 1200 → 1890 = +690 (+57,5%)
+    await vis(page, 'segmento-volume').click();
+    await esperarAtual(page, 'comparacao-treino', regexValor('1890', 'kg totais'), hojeBr());
+    await expect(vis(page, 'comparacao-treino-variacao')).toHaveText('+240 kg totais (+14,5%)');
+    await expect(vis(page, 'progresso-periodo')).toHaveText(/\+690 kg totais \(\+57,5%\)/);
+    await vis(page, 'segmento-carga_maxima').click();
+
+    // períodos: pontos do gráfico e progresso do período; a comparação não muda
+    const pontosNoGrafico = (n: number) =>
+      expect(page.locator('[data-testid^="grafico-treino-ponto-"]')).toHaveCount(n);
+    await vis(page, 'periodo-7d').click(); // −3 (55) e hoje (52,5)
+    await pontosNoGrafico(2);
+    await expect(vis(page, 'progresso-periodo')).toHaveText(/−2,5 kg \(−4,5%\)/);
+    await vis(page, 'periodo-30d').click(); // −20 (50), −10, −3, hoje: +2,5 kg (+5%)
+    await pontosNoGrafico(4);
+    await expect(vis(page, 'progresso-periodo')).toHaveText(/\+2,5 kg \(\+5%\)/);
+    await vis(page, 'periodo-3m').click();
+    await pontosNoGrafico(5);
+    await vis(page, 'periodo-tudo').click();
+    await pontosNoGrafico(5);
+    await expect(vis(page, 'comparacao-treino-variacao')).toHaveText('−2,5 kg (−4,5%)');
+  });
+
+  await test.step('UI: valores iguais, ponto único, período vazio e atalho para o detalhe', async () => {
+    // Remada: dois dias com 30 kg → variação zero
+    await vis(page, 'seletor-exercicio').click();
+    await vis(page, `seletor-exercicio-opcao-${idsEvo.remada}`).click();
+    await expect(vis(page, 'seletor-exercicio')).toContainText(`Remada Evo ${SUFIXO_EVO}`);
+    await esperarAtual(page, 'comparacao-treino', regexValor('30', 'kg'), hojeBr(-6));
+    await expect(vis(page, 'comparacao-treino-variacao')).toHaveText('0 kg (0%)');
+    await expect(vis(page, 'progresso-periodo')).toHaveText(/0 kg \(0%\)/);
+    // "7 dias": só o dia −6 → um ponto, sem linha; a comparação continua com os dois dias
+    await vis(page, 'periodo-7d').click();
+    await expect(page.locator('[data-testid^="grafico-treino-ponto-"]')).toHaveCount(1);
+    await expect(page.getByTestId('grafico-treino').locator('polyline')).toHaveCount(0);
+    await expect(page.getByTestId('progresso-periodo')).toHaveCount(0);
+    await expect(vis(page, 'comparacao-treino-anterior')).toBeVisible();
+
+    // Rosca: um registro só, há 100 dias
+    await vis(page, 'seletor-exercicio').click();
+    await vis(page, `seletor-exercicio-opcao-${idsEvo.rosca}`).click();
+    await expect(vis(page, 'desempenho-vazio')).toContainText('Sem registros neste período');
+    await expect(vis(page, 'comparacao-treino-sem-anterior')).toHaveText('Primeiro registro');
+    await expect(vis(page, 'comparacao-treino-atual')).toHaveText(regexValor('20', 'kg'));
+    await vis(page, 'periodo-6m').click();
+    await esperarAtual(page, 'comparacao-treino', regexValor('20', 'kg'), hojeBr(-100));
+    await expect(page.getByTestId('grafico-treino').locator('polyline')).toHaveCount(0);
+    await vis(page, 'periodo-3m').click();
+    await expect(vis(page, 'desempenho-vazio')).toBeVisible();
+    await vis(page, 'link-detalhe-exercicio').click();
+    await expect(page).toHaveURL(new RegExp(`/aluno/evolucao/${idsEvo.rosca}$`));
+    await clicarVoltar(page);
+    await expect(vis(page, 'tela-evolucao')).toBeVisible();
+  });
+
+  await test.step('UI: evolução física, valores nulos, comparação e histórico das avaliações', async () => {
+    await abrirLado(page, 'corpo');
+    await expect(vis(page, 'secao-fisica')).toBeVisible();
+    await expect(page.getByTestId('secao-treinos')).toHaveCount(0);
+    const pontosFisicos = () => page.locator('[data-testid^="grafico-fisico-ponto-"]');
+
+    // Peso (80, 78, 76,5): 76,5 × 78 → −1,5 kg (−1,5 / 78 = −1,92% → −1,9%)
+    await expect(pontosFisicos()).toHaveCount(3);
+    await esperarAtual(page, 'comparacao-fisica', regexValor('76,5', 'kg'), hojeBr(-5));
+    await expect(vis(page, 'comparacao-fisica-anterior')).toContainText(contemValor('78', 'kg'));
+    await expect(vis(page, 'comparacao-fisica-atual')).toHaveText(regexValor('76,5', 'kg'));
+    await expect(vis(page, 'comparacao-fisica-variacao')).toHaveText('−1,5 kg (−1,9%)');
+    await vis(page, 'grafico-fisico-ponto-0').click();
+    await esperarSelecao(page, 'grafico-fisico', regexValor('80', 'kg'), hojeBr(-60));
+
+    // Gordura: a avaliação de −30 dias não tem o indicador (null) → 2 pontos; compara 22 × 25 → −3 % (−12%)
+    await vis(page, 'segmento-percentual_gordura').click();
+    await expect(pontosFisicos()).toHaveCount(2);
+    await expect(vis(page, 'comparacao-fisica-anterior')).toContainText(contemValor('25', '%'));
+    await expect(vis(page, 'comparacao-fisica-atual')).toHaveText(regexValor('22', '%'));
+    await expect(vis(page, 'comparacao-fisica-variacao')).toHaveText('−3 % (−12%)');
+
+    // Massa muscular: a de −5 dias é null → 2 pontos (40 em −60, 41 em −30): +1 kg (+2,5%)
+    await vis(page, 'segmento-massa_muscular').click();
+    await expect(pontosFisicos()).toHaveCount(2);
+    await esperarAtual(page, 'comparacao-fisica', regexValor('41', 'kg'), hojeBr(-30));
+    await expect(vis(page, 'comparacao-fisica-variacao')).toHaveText('+1 kg (+2,5%)');
+
+    // IMC (sem unidade): 24,69 → 24,07 → 23,61; 23,61 × 24,07 = −0,46 (−0,46 / 24,07 = −1,91% → −1,9%)
+    await vis(page, 'segmento-imc').click();
+    await expect(pontosFisicos()).toHaveCount(3);
+    await expect(vis(page, 'comparacao-fisica-atual')).toHaveText('23,61');
+    await expect(vis(page, 'comparacao-fisica-anterior')).toContainText('24,07');
+    await expect(vis(page, 'comparacao-fisica-variacao')).toHaveText('−0,46 (−1,9%)');
+
+    // Histórico das avaliações: lista compacta, mais recente primeiro; tocar na linha abre o detalhe
+    const [a1, a2, a3] = idsEvo.avaliacoes; // −60, −30, −5
+    const linhasAvaliacao = page.locator(
+      '[data-testid^="avaliacao-"]:not([data-testid$="-linha"]):not([data-testid$="-detalhe"])',
+    );
+    await expect(linhasAvaliacao).toHaveCount(3);
+    await expect(linhasAvaliacao.nth(0)).toHaveAttribute('data-testid', `avaliacao-${a3}`);
+    await expect(linhasAvaliacao.nth(1)).toHaveAttribute('data-testid', `avaliacao-${a2}`);
+    await expect(linhasAvaliacao.nth(2)).toHaveAttribute('data-testid', `avaliacao-${a1}`);
+    await expect(vis(page, `avaliacao-${a3}`)).toContainText(hojeBr(-5));
+    await expect(vis(page, `avaliacao-${a3}`)).toContainText('Mais recente');
+    await expect(vis(page, `avaliacao-${a3}`)).toContainText(/76,5\s*kg/);
+    await expect(vis(page, `avaliacao-${a3}`)).toContainText('23,61');
+    await expect(vis(page, `avaliacao-${a3}`)).toContainText(/22\s*%/);
+    // recolhidas: sem altura nem observação na lista
+    await expect(page.getByTestId(`avaliacao-${a3}-detalhe`)).toHaveCount(0);
+    await expect(vis(page, `avaliacao-${a2}`)).toContainText(/78\s*kg/);
+    await expect(vis(page, `avaliacao-${a2}`)).toContainText('24,07');
+    await expect(vis(page, `avaliacao-${a2}`)).toContainText('—'); // gordura ausente
+    await expect(vis(page, `avaliacao-${a2}`)).not.toContainText('Mais recente');
+
+    // detalhe da mais recente: altura, sem massa muscular ("—"), sem observação
+    await vis(page, `avaliacao-${a3}-linha`).click();
+    await expect(vis(page, `avaliacao-${a3}-detalhe`)).toContainText(/Altura\s*1,80 m/);
+    await expect(vis(page, `avaliacao-${a3}-detalhe`)).toContainText(/Massa muscular\s*—/);
+    // detalhe da de −30 dias (abre uma por vez): altura e massa muscular
+    await vis(page, `avaliacao-${a2}-linha`).click();
+    await expect(page.getByTestId(`avaliacao-${a3}-detalhe`)).toHaveCount(0);
+    await expect(vis(page, `avaliacao-${a2}-detalhe`)).toContainText(/Altura\s*1,80 m/);
+    await expect(vis(page, `avaliacao-${a2}-detalhe`)).toContainText(/Massa muscular\s*41\s*kg/);
+    // detalhe da inicial: massa muscular e observação
+    await vis(page, `avaliacao-${a1}-linha`).click();
+    await expect(vis(page, `avaliacao-${a1}`)).toContainText('24,69');
+    await expect(vis(page, `avaliacao-${a1}-detalhe`)).toContainText(/Massa muscular\s*40\s*kg/);
+    await expect(vis(page, `avaliacao-${a1}-detalhe`)).toContainText('Inicial E2E');
+  });
+
+  await test.step('UI: alternar Treinos/Corpo preserva exercício, métrica, indicador e avaliação expandida (EV-05)', async () => {
+    // Estado atual: Corpo com IMC selecionado e a avaliação inicial expandida; Treinos com Rosca.
+    const [a1] = idsEvo.avaliacoes;
+    await abrirLado(page, 'treinos');
+    await vis(page, 'segmento-volume').click();
+    await expect(vis(page, 'segmento-volume')).toHaveAttribute('aria-selected', 'true');
+    await abrirLado(page, 'corpo');
+    await expect(vis(page, 'segmento-imc')).toHaveAttribute('aria-selected', 'true');
+    await expect(vis(page, `avaliacao-${a1}-detalhe`)).toContainText('Inicial E2E');
+    await abrirLado(page, 'treinos');
+    await expect(vis(page, 'seletor-exercicio')).toContainText(`Rosca Evo ${SUFIXO_EVO}`);
+    await expect(vis(page, 'segmento-volume')).toHaveAttribute('aria-selected', 'true');
+    await vis(page, 'segmento-carga_maxima').click();
+    await expect(vis(page, 'segmento-carga_maxima')).toHaveAttribute('aria-selected', 'true');
+  });
+
+  await test.step('UI: troca rápida de filtro não deixa o gráfico com dados do filtro antigo', async () => {
+    await abrirLado(page, 'treinos');
+    await vis(page, 'seletor-exercicio').click();
+    await vis(page, `seletor-exercicio-opcao-${idsEvo.supino}`).click();
+    await vis(page, 'periodo-tudo').click();
+    const origemApi = new URL(process.env.E2E_API_URL!).origin;
+    // a resposta de "7d" demora 2,5 s: chega depois das demais e não pode vencer
+    await page.route(
+      (url) => url.origin === origemApi && url.pathname === `/evolucao/exercicios/${idsEvo.supino}`,
+      async (route) => {
+        if (new URL(route.request().url()).searchParams.get('periodo') === '7d') {
+          await new Promise((r) => setTimeout(r, 2500));
+        }
+        await route.continue();
+      },
+    );
+    await vis(page, 'periodo-7d').click();
+    await vis(page, 'periodo-30d').click();
+    await vis(page, 'periodo-3m').click();
+    await vis(page, 'periodo-tudo').click();
+    await expect(page.locator('[data-testid^="grafico-treino-ponto-"]')).toHaveCount(5);
+    await page.waitForTimeout(3500); // dá tempo da resposta atrasada de "7d" chegar
+    await expect(page.locator('[data-testid^="grafico-treino-ponto-"]')).toHaveCount(5);
+    await expect(vis(page, 'progresso-periodo')).toHaveText(/\+12,5 kg \(\+31,3%\)/);
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
+  });
+
+  await test.step('UI: erro de rede em uma seção não derruba as outras; "Tentar novamente" recupera', async () => {
+    const origemApi = new URL(process.env.E2E_API_URL!).origin;
+    const falhar = (caminho: (p: string) => boolean) =>
+      page.route(
+        (url) => url.origin === origemApi && caminho(url.pathname),
+        (route) => route.abort('failed'),
+      );
+
+    // 1) avaliações fora do ar: o lado Corpo mostra o erro; os treinos (lado padrão) seguem funcionando
+    await falhar((p) => p === '/avaliacoes');
+    await page.reload();
+    await expect(vis(page, 'tela-evolucao')).toBeVisible();
+    await expect(vis(page, 'grafico-treino')).toBeVisible();
+    await expect(vis(page, 'resumo-evolucao')).not.toContainText('Peso atual');
+    await abrirLado(page, 'corpo');
+    await expect(vis(page, 'erro-fisica')).toBeVisible();
+    await expect(page.getByTestId('secao-avaliacoes')).toHaveCount(0);
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
+    await vis(page, 'erro-fisica').getByText('Tentar novamente', { exact: true }).click();
+    await expect(vis(page, 'grafico-fisico')).toBeVisible();
+    await expect(page.getByTestId('erro-fisica')).toHaveCount(0);
+    await expect(vis(page, 'secao-avaliacoes')).toBeVisible();
+
+    // 2) detalhe do exercício fora do ar: erro só no desempenho; o Corpo fica intacto
+    await falhar((p) => /^\/evolucao\/exercicios\/\d+$/.test(p));
+    await page.reload();
+    await expect(vis(page, 'erro-desempenho')).toBeVisible();
+    await expect(vis(page, 'seletor-exercicio')).toBeVisible();
+    await abrirLado(page, 'corpo');
+    await expect(page.getByTestId('erro-fisica')).toHaveCount(0);
+    await expect(vis(page, 'grafico-fisico')).toBeVisible();
+    await expect(vis(page, 'secao-avaliacoes')).toBeVisible();
+    await abrirLado(page, 'treinos');
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
+    await vis(page, 'erro-desempenho').getByText('Tentar novamente', { exact: true }).click();
+    await expect(vis(page, 'grafico-treino')).toBeVisible();
+
+    // 3) lista de exercícios fora do ar: erro só no lado Treinos
+    await falhar((p) => p === '/evolucao/exercicios');
+    await page.reload();
+    await expect(vis(page, 'erro-treinos')).toBeVisible();
+    await abrirLado(page, 'corpo');
+    await expect(vis(page, 'grafico-fisico')).toBeVisible();
+    await abrirLado(page, 'treinos');
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
+    await vis(page, 'erro-treinos').getByText('Tentar novamente', { exact: true }).click();
+    await expect(vis(page, 'grafico-treino')).toBeVisible();
+  });
+
+  await test.step('UI: aluno sem dados vê os estados vazios', async () => {
+    await page.evaluate(() => localStorage.clear());
+    await page.goto('/');
+    await login(page, alunoVazio.email, SENHA_ALUNO);
+    await expect(page).toHaveURL(/\/aluno$/);
+    await abrirEvolucao(page);
+    await expect(vis(page, 'secao-treinos')).toContainText('Sem evolução ainda');
+    await expect(vis(page, 'secao-treinos')).toContainText('Registre treinos para acompanhar sua evolução.');
+    await abrirLado(page, 'corpo');
+    await expect(vis(page, 'secao-fisica')).toContainText('Nenhuma avaliação');
+    await expect(vis(page, 'secao-fisica')).toContainText('Você ainda não tem avaliações físicas.');
+    await expect(page.getByTestId('resumo-evolucao')).toHaveCount(0);
+    await expect(page.getByTestId('secao-avaliacoes')).toHaveCount(0);
+    await expect(page.getByTestId('grafico-treino')).toHaveCount(0);
+    // nenhum dado do outro aluno vaza para a tela
+    await expect(page.getByText(`Supino Evo ${SUFIXO_EVO}`)).toHaveCount(0);
+    await expect(page.getByText('76,5')).toHaveCount(0);
+  });
+
+  // QA-EV04-01: duas avaliações no mesmo dia (mesmo instante). A API entrega `data desc, id desc`;
+  // "atual" e "anterior" valem por (data, id) crescente: a de maior id é a mais recente.
+  await test.step('UI: duas avaliações no mesmo dia — atual/anterior por (data, id), resumo, comparação e selo coerentes', async () => {
+    const alunoMesmoDia = { nome: `Aluno Mesmo Dia ${SUFIXO_EVO}`, email: `aluno.mesmodia.${SUFIXO_EVO}@example.com` };
+    const cadastro = await chamarApi(request, 'POST', '/cadastro', {
+      dados: {
+        nome: alunoMesmoDia.nome,
+        email: alunoMesmoDia.email,
+        senha: SENHA_ALUNO,
+        telefone: '11955556666',
+        data_nascimento: '1990-01-01',
+      },
+    });
+    expect(cadastro.status).toBe(200);
+    const alunos = (await chamarApi(request, 'GET', '/alunos', { token: prof })).corpo as { id: number; nome: string }[];
+    const idMesmoDia = alunos.find((a) => a.nome === alunoMesmoDia.nome)!.id;
+
+    // Mesmo instante nas duas (só o id desempata). Altura 1,70 → altura² = 2,89:
+    // IMC 70,5 / 2,89 = 24,39 | 71 / 2,89 = 24,57 → +0,18; 0,18 / 24,39 = 0,74% → +0,7%
+    // Peso: 71 × 70,5 → +0,5 kg (0,5 / 70,5 = 0,709% → +0,7%)
+    // Gordura: 19 × 20 → −1 % (−5%) | Massa muscular: 36 × 35 → +1 kg (1 / 35 = 2,857% → +2,9%)
+    const instante = `${hojeIso(-2)}T09:00:00`;
+    const ids: number[] = [];
+    for (const [peso, gordura, massa] of [
+      [70.5, 20, 35],
+      [71, 19, 36],
+    ]) {
+      const r = await chamarApi(request, 'POST', `/alunos/${idMesmoDia}/avaliacoes`, {
+        token: prof,
+        dados: {
+          data_avaliacao: instante,
+          peso,
+          altura: 1.7,
+          percentual_gordura: gordura,
+          massa_muscular: massa,
+          observacao: null,
+        },
+      });
+      expect(r.status).toBe(200);
+      ids.push(r.corpo.id);
+    }
+    const [idAntigo, idRecente] = ids;
+    expect(idRecente).toBeGreaterThan(idAntigo);
+
+    // a API entrega a lista invertida em relação à ordem cronológica: é esse o cenário do defeito
+    const tokenMesmoDia = await loginApi(request, alunoMesmoDia.email, SENHA_ALUNO);
+    const lista = await chamarApi(request, 'GET', '/avaliacoes', { token: tokenMesmoDia });
+    expect(lista.corpo.map((a: { id: number }) => a.id)).toEqual([idRecente, idAntigo]);
+
+    await page.evaluate(() => localStorage.clear());
+    await page.goto('/');
+    await login(page, alunoMesmoDia.email, SENHA_ALUNO);
+    await expect(page).toHaveURL(/\/aluno$/);
+    await abrirEvolucao(page);
+
+    const pontosFisicos = page.locator('[data-testid^="grafico-fisico-ponto-"]');
+    // Resumo: peso atual = 71 kg (a avaliação de maior id)
+    await expect(vis(page, 'resumo-evolucao')).toHaveText(/71\s*kg\s*Peso atual/);
+    await abrirLado(page, 'corpo');
+
+    // Peso: dois pontos no mesmo dia; atual 71, anterior 70,5, +0,5 kg (+0,7%)
+    await expect(pontosFisicos).toHaveCount(2);
+    await esperarAtual(page, 'comparacao-fisica', regexValor('71', 'kg'), hojeBr(-2));
+    await expect(vis(page, 'comparacao-fisica-atual')).toHaveText(regexValor('71', 'kg'));
+    await expect(vis(page, 'comparacao-fisica-anterior')).toContainText(contemValor('70,5', 'kg'));
+    await expect(vis(page, 'comparacao-fisica-variacao')).toHaveText('+0,5 kg (+0,7%)');
+
+    // IMC (sem unidade): 24,57 × 24,39 → +0,18 (+0,7%)
+    await vis(page, 'segmento-imc').click();
+    await expect(pontosFisicos).toHaveCount(2);
+    await expect(vis(page, 'comparacao-fisica-atual')).toHaveText('24,57');
+    await expect(vis(page, 'comparacao-fisica-anterior')).toContainText('24,39');
+    await expect(vis(page, 'comparacao-fisica-variacao')).toHaveText('+0,18 (+0,7%)');
+
+    // Gordura e massa muscular seguem a mesma ordem
+    await vis(page, 'segmento-percentual_gordura').click();
+    await expect(vis(page, 'comparacao-fisica-atual')).toHaveText(regexValor('19', '%'));
+    await expect(vis(page, 'comparacao-fisica-anterior')).toContainText(contemValor('20', '%'));
+    await expect(vis(page, 'comparacao-fisica-variacao')).toHaveText('−1 % (−5%)');
+    await vis(page, 'segmento-massa_muscular').click();
+    await expect(vis(page, 'comparacao-fisica-atual')).toHaveText(regexValor('36', 'kg'));
+    await expect(vis(page, 'comparacao-fisica-anterior')).toContainText(contemValor('35', 'kg'));
+    await expect(vis(page, 'comparacao-fisica-variacao')).toHaveText('+1 kg (+2,9%)');
+
+    // Histórico: o selo "Mais recente" fica na avaliação de 71 kg, que vem primeiro
+    const cartoes = page.locator(
+      '[data-testid^="avaliacao-"]:not([data-testid$="-linha"]):not([data-testid$="-detalhe"])',
+    );
+    await expect(cartoes).toHaveCount(2);
+    await expect(cartoes.nth(0)).toHaveAttribute('data-testid', `avaliacao-${idRecente}`);
+    await expect(cartoes.nth(1)).toHaveAttribute('data-testid', `avaliacao-${idAntigo}`);
+    await expect(vis(page, `avaliacao-${idRecente}`)).toContainText('Mais recente');
+    await expect(vis(page, `avaliacao-${idRecente}`)).toContainText(/71\s*kg/);
+    await expect(vis(page, `avaliacao-${idRecente}`)).toContainText('24,57');
+    await expect(vis(page, `avaliacao-${idAntigo}`)).not.toContainText('Mais recente');
+    await expect(vis(page, `avaliacao-${idAntigo}`)).toContainText(/70,5\s*kg/);
+    await expect(vis(page, `avaliacao-${idAntigo}`)).toContainText('24,39');
+  });
+
   semDialogosPendentes();
 });

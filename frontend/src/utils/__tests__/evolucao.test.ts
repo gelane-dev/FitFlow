@@ -9,9 +9,9 @@ import {
 } from '@/utils/evolucao';
 
 const pontos: PontoEvolucao[] = [
-  { data: '2026-10-01', carga_maxima: 20, volume: 600, registros: 3 },
-  { data: '2026-10-08', carga_maxima: 40, volume: 1200, registros: 3 },
-  { data: '2026-10-15', carga_maxima: 30, volume: 300, registros: 1 },
+  { data: '2026-10-01', carga_maxima: 20, volume: 600, registros: 3, repeticoes_maximas: 10, series: 3 },
+  { data: '2026-10-08', carga_maxima: 40, volume: 1200, registros: 3, repeticoes_maximas: 10, series: 3 },
+  { data: '2026-10-15', carga_maxima: 30, volume: 300, registros: 1, repeticoes_maximas: 10, series: 3 },
 ];
 
 describe('montarBarras', () => {

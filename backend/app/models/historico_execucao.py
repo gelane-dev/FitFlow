@@ -1,12 +1,13 @@
 from datetime import datetime
 
-from sqlalchemy import Integer, Float, String, ForeignKey, DateTime
+from sqlalchemy import Integer, Float, String, ForeignKey, DateTime, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
 
 class HistoricoExecucao(Base):
     __tablename__ = "historicos_execucao"
+    __table_args__ = (Index("ix_historicos_execucao_aluno_data", "aluno_id", "data_execucao"),)
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     item_ficha_id: Mapped[int] = mapped_column(ForeignKey("itens_ficha.id"))
     item_ficha: Mapped["ItemFicha"] = relationship(back_populates="historicos")

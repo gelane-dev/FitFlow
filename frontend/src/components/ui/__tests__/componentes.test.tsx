@@ -177,6 +177,20 @@ describe('Pressionavel, Cartao, Chip, LinhaLista', () => {
     expect(aoPressionar).toHaveBeenCalledTimes(1);
   });
 
+  it('Chip com papel radio expõe checked; o padrão continua button sem checked', async () => {
+    await render(
+      <>
+        <Chip rotulo="A" selecionado papel="radio" testID="r" />
+        <Chip rotulo="B" selecionado testID="b" />
+      </>
+    );
+
+    expect(screen.getByTestId('r').props.accessibilityRole).toBe('radio');
+    expect(screen.getByTestId('r').props.accessibilityState).toMatchObject({ checked: true, selected: true });
+    expect(screen.getByTestId('b').props.accessibilityRole).toBe('button');
+    expect(screen.getByTestId('b').props.accessibilityState.checked).toBeUndefined();
+  });
+
   it('LinhaLista mostra título/subtítulo e navega ao tocar', async () => {
     const aoPressionar = jest.fn();
     await render(<LinhaLista titulo="Ana Demo" subtitulo="11977776666" icone="person-outline" onPress={aoPressionar} />);

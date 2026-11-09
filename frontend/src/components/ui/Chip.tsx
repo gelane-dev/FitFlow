@@ -13,10 +13,12 @@ export interface ChipProps {
   testID?: string;
   /** Divide a linha em partes iguais com os outros chips (ex.: 7 dias numa linha só). */
   igual?: boolean;
+  /** `radio` para grupos de escolha única (expõe aria-checked na web); padrão `button`. */
+  papel?: 'button' | 'radio';
 }
 
 /** Filtro/seleção compacta (ex.: dia da semana, grupo muscular). */
-export function Chip({ rotulo, selecionado = false, onPress, icone, testID, igual = false }: ChipProps) {
+export function Chip({ rotulo, selecionado = false, onPress, icone, testID, igual = false, papel = 'button' }: ChipProps) {
   const corTexto = selecionado ? cores.sobrePrimaria : cores.textoSecundario;
 
   return (
@@ -26,8 +28,9 @@ export function Chip({ rotulo, selecionado = false, onPress, icone, testID, igua
       haptico={onPress ? 'leve' : false}
       testID={testID}
       hitSlop={{ top: 5, bottom: 5 }}
-      accessibilityRole="button"
-      accessibilityState={{ selected: selecionado }}
+      accessibilityRole={papel}
+      aria-checked={papel === 'radio' ? selecionado : undefined}
+      accessibilityState={papel === 'radio' ? { selected: selecionado, checked: selecionado } : { selected: selecionado }}
       style={[estilos.chip, igual && estilos.igual, selecionado && estilos.selecionado]}
     >
       {icone && <Ionicons name={icone} size={14} color={corTexto} style={estilos.icone} />}

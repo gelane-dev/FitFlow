@@ -1,7 +1,6 @@
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
-import { useRef, useState } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { Avatar } from '@/components/ui/Avatar';
 import { Botao } from '@/components/ui/Botao';
@@ -14,13 +13,11 @@ import { Tela } from '@/components/ui/Tela';
 import { TituloSecao } from '@/components/ui/TituloSecao';
 import { useAlertaErro } from '@/hooks/useAlertaErro';
 import { useAuth } from '@/hooks/useAuth';
-import { useErrosAposTentativa } from '@/hooks/useErrosAposTentativa';
 import { useGerenciarPerfil } from '@/hooks/useGerenciarPerfil';
 import { usePerfil } from '@/hooks/usePerfil';
 import { cores } from '@/theme';
 import { mostrarAlerta } from '@/utils/alerta';
 import { dataBrParaIso, mascararData } from '@/utils/datas';
-import { CampoTrocaSenha, validarTrocaSenha } from '@/utils/validacaoFormularios';
 
 const TAMANHO_MAXIMO_FOTO = 5 * 1024 * 1024;
 
@@ -55,7 +52,6 @@ export function PerfilConteudo() {
 
   const {
     salvarDados,
-    trocarSenha,
     trocarFoto,
     removerFoto,
     carregando,
@@ -64,15 +60,6 @@ export function PerfilConteudo() {
 
   useAlertaErro(erroPerfil);
   useAlertaErro(erro);
-
-  const [senhaAtual, setSenhaAtual] = useState('');
-  const [novaSenha, setNovaSenha] = useState('');
-  const refNovaSenha = useRef<TextInput>(null);
-  const refConfirmacao = useRef<TextInput>(null);
-  const [confirmacaoSenha, setConfirmacaoSenha] = useState('');
-  const { erros: errosSenha, tentar: tentarSenha } = useErrosAposTentativa<CampoTrocaSenha>(() =>
-    validarTrocaSenha({ senhaAtual, novaSenha, confirmacao: confirmacaoSenha })
-  );
 
   const ehAluno = usuario?.tipo === 'aluno';
   const temDados = usuario?.tipo === 'aluno' || usuario?.tipo === 'professor';
@@ -91,21 +78,6 @@ export function PerfilConteudo() {
 
     if (sucesso) {
       mostrarAlerta('Sucesso', 'Dados atualizados.');
-    }
-  }
-
-  async function aoTrocarSenha() {
-    if (!tentarSenha()) {
-      return;
-    }
-
-    const sucesso = await trocarSenha(senhaAtual, novaSenha);
-
-    if (sucesso) {
-      setSenhaAtual('');
-      setNovaSenha('');
-      setConfirmacaoSenha('');
-      mostrarAlerta('Sucesso', 'Senha atualizada.');
     }
   }
 
@@ -256,49 +228,6 @@ export function PerfilConteudo() {
           </Botao>
         </>
       )}
-
-      <TituloSecao titulo="Trocar senha" />
-
-      <CampoTexto
-        value={senhaAtual}
-        onChangeText={setSenhaAtual}
-        secureTextEntry
-        placeholder="Senha atual"
-        icone="lock-closed-outline"
-        erro={errosSenha.senhaAtual}
-        returnKeyType="next"
-        blurOnSubmit={false}
-        onSubmitEditing={() => refNovaSenha.current?.focus()}
-      />
-
-      <CampoTexto
-        value={novaSenha}
-        ref={refNovaSenha}
-        onChangeText={setNovaSenha}
-        secureTextEntry
-        placeholder="Nova senha"
-        icone="key-outline"
-        erro={errosSenha.novaSenha}
-        returnKeyType="next"
-        blurOnSubmit={false}
-        onSubmitEditing={() => refConfirmacao.current?.focus()}
-      />
-
-      <CampoTexto
-        value={confirmacaoSenha}
-        ref={refConfirmacao}
-        onChangeText={setConfirmacaoSenha}
-        secureTextEntry
-        placeholder="Confirmar nova senha"
-        icone="key-outline"
-        erro={errosSenha.confirmacao}
-        returnKeyType="done"
-        onSubmitEditing={aoTrocarSenha}
-      />
-
-      <Botao variante="secundario" onPress={aoTrocarSenha} disabled={carregando}>
-        ALTERAR SENHA
-      </Botao>
 
       <View style={estilos.sair}>
         <Botao variante="perigo" icone="log-out-outline" onPress={confirmarSaida} testID="botao-sair">
