@@ -104,8 +104,8 @@ def test_ficha_antiga_sem_data_inicio_usa_data_criacao(client, db, professor_hea
 
 
 def test_listar_fichas_do_professor_filtra_por_aluno(client, db, professor_headers, aluno_id, outro_aluno_headers):
-    from app.models import Aluno
-    outro = db.query(Aluno).filter(Aluno.nome == "Aluno 2").one().id
+    from conftest import vincular
+    outro = vincular(db, "Aluno 2", "Professor")  # escopo do professor: precisa estar vinculado
     _criar(client, professor_headers, aluno_id)
     _criar(client, professor_headers, outro)
 

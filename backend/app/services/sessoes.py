@@ -126,7 +126,9 @@ def iniciar_sessao(db: Session, aluno: Aluno, treino_id: int) -> SessaoTreino:
     """Cria a sessão ou devolve a que o aluno já deixou aberta para o treino."""
     treino = db.scalar(select(Treino).where(Treino.id == treino_id, Treino.ativo.is_(True)))
     ficha = db.scalar(
-        select(Ficha).where(Ficha.id == treino.ficha_id, Ficha.aluno_id == aluno.id, Ficha.ativo.is_(True))
+        select(Ficha).where(
+            Ficha.id == treino.ficha_id, Ficha.aluno_id == aluno.id, Ficha.ativo.is_(True),
+            Ficha.status == "publicada")
     ) if treino else None
 
     if not treino or not ficha:

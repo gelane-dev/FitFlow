@@ -1,15 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..core.seguranca import verificar_aluno, verificar_professor, verificar_aluno_ou_professor
-from ..models import Aluno
+from ..core.seguranca import verificar_aluno, verificar_professor_ou_admin, verificar_aluno_ou_professor
 from ..schemas.ficha import HistoricoResposta
 from ..schemas.sessao import (
     SessaoCriar, SessaoResposta, SessaoResumo, ExecucoesCriar, SessaoFinalizar,
 )
 from ..services import sessoes as servico
+from ..services.acesso_aluno import obter_aluno_acessivel
 
 router = APIRouter()
 
@@ -59,8 +58,13 @@ def obter_sessao(id: int, perfil=Depends(verificar_aluno_ou_professor), db: Sess
             detail="Sessão não encontrada"
         )
 
-    if tipo == "aluno" and sessao.aluno_id != usuario_perfil.id:
-        # Não revela a existência de sessões de outros alunos
+    # Não revela a existência de sessões de outros alunos (nem de alunos de outro professor)
+    if tipo == "aluno":
+        permitido = sessao.aluno_id == usuario_perfil.id
+    else:
+        permitido = sessao.aluno.professor_id == usuario_perfil.id
+
+    if not permitido:
         raise HTTPException(
             status_code=404,
             detail="Sessão não encontrada"
@@ -73,16 +77,10 @@ def listar_sessoes_do_aluno(
     aluno_id: int,
     limite: int | None = Query(None, ge=1, le=200),
     deslocamento: int = Query(0, ge=0),
-    professor=Depends(verificar_professor),
+    ator=Depends(verificar_professor_ou_admin),
     db: Session = Depends(get_db),
 ):
 
-    aluno = db.scalar(select(Aluno).where(Aluno.id == aluno_id))
-
-    if not aluno:
-        raise HTTPException(
-            status_code=404,
-            detail="Aluno não encontrado"
-        )
+    aluno = obter_aluno_acessivel(db, ator, aluno_id)
 
     return servico.listar_sessoes_aluno(db, aluno.id, limite, deslocamento)

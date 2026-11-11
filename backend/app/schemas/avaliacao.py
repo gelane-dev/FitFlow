@@ -12,6 +12,15 @@ class AvaliacaoCriar(BaseModel):
     percentual_gordura: float | None = Field(default=None, ge=0, le=100)
     massa_muscular: float | None = Field(default=None, gt=0)
     observacao: str | None = Field(default=None, max_length=500)
+    cintura: float | None = Field(default=None, gt=0, le=300)
+    quadril: float | None = Field(default=None, gt=0, le=300)
+    abdomen: float | None = Field(default=None, gt=0, le=300)
+    peito: float | None = Field(default=None, gt=0, le=300)
+    braco_direito: float | None = Field(default=None, gt=0, le=300)
+    braco_esquerdo: float | None = Field(default=None, gt=0, le=300)
+    coxa_direita: float | None = Field(default=None, gt=0, le=300)
+    coxa_esquerda: float | None = Field(default=None, gt=0, le=300)
+    panturrilha: float | None = Field(default=None, gt=0, le=300)
 
     @field_validator("data_avaliacao")
     @classmethod

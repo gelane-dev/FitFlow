@@ -62,13 +62,14 @@ def test_criar_avaliacao_permissoes_e_404(client, aluno_headers, professor_heade
 
 def test_listar_avaliacoes_do_aluno_desc(client, professor_headers, outro_professor_headers, aluno_headers, aluno_id):
     _criar(client, professor_headers, aluno_id, data_avaliacao="2026-01-01T08:00:00")
-    _criar(client, outro_professor_headers, aluno_id, data_avaliacao="2026-05-01T08:00:00")
+    _criar(client, professor_headers, aluno_id, data_avaliacao="2026-05-01T08:00:00")
     _criar(client, professor_headers, aluno_id, data_avaliacao="2026-03-01T08:00:00")
 
-    for headers in (professor_headers, outro_professor_headers):  # ADR-022
-        r = client.get(f"/alunos/{aluno_id}/avaliacoes", headers=headers)
-        assert r.status_code == 200
-        assert [a["data_avaliacao"][:7] for a in r.json()] == ["2026-05", "2026-03", "2026-01"]
+    # Contrato de gestão (ADR-033, substitui o ADR-022): só o professor vinculado (e o admin) lê
+    r = client.get(f"/alunos/{aluno_id}/avaliacoes", headers=professor_headers)
+    assert r.status_code == 200
+    assert [a["data_avaliacao"][:7] for a in r.json()] == ["2026-05", "2026-03", "2026-01"]
+    assert client.get(f"/alunos/{aluno_id}/avaliacoes", headers=outro_professor_headers).status_code == 404
 
     assert client.get(f"/alunos/{aluno_id}/avaliacoes", headers=aluno_headers).status_code == 403
     assert client.get("/alunos/999/avaliacoes", headers=professor_headers).status_code == 404

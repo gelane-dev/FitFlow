@@ -3,10 +3,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..core.seguranca import verificar_aluno, verificar_professor
-from ..models import Aluno, AvaliacaoFisica
+from ..core.seguranca import verificar_aluno, verificar_professor, verificar_professor_ou_admin
+from ..models import AvaliacaoFisica
 from ..schemas.avaliacao import AvaliacaoCriar, AvaliacaoResposta
 from ..services.avaliacoes import montar_avaliacao
+from ..services.acesso_aluno import obter_aluno_acessivel
 
 router = APIRouter()
 
@@ -19,7 +20,8 @@ def _buscar_avaliacao(db: Session, id: int, professor, acao: str) -> AvaliacaoFi
             detail="Avaliação não encontrada"
         )
 
-    if avaliacao.professor_id != professor.id:
+    # ADR-038: o professor precisa ser o autor e o aluno precisa estar vinculado a ele
+    if avaliacao.professor_id != professor.id or avaliacao.aluno.professor_id != professor.id:
         raise HTTPException(
             status_code=403,
             detail=f"Você não tem permissão para {acao} esta avaliação"
@@ -30,13 +32,7 @@ def _buscar_avaliacao(db: Session, id: int, professor, acao: str) -> AvaliacaoFi
 @router.post("/alunos/{aluno_id}/avaliacoes", response_model=AvaliacaoResposta)
 def criar_avaliacao(aluno_id: int, dados: AvaliacaoCriar, professor=Depends(verificar_professor), db: Session = Depends(get_db)):
 
-    aluno = db.scalar(select(Aluno).where(Aluno.id == aluno_id))
-
-    if not aluno:
-        raise HTTPException(
-            status_code=404,
-            detail="Aluno não encontrado"
-        )
+    aluno = obter_aluno_acessivel(db, ("professor", professor), aluno_id)
 
     avaliacao = AvaliacaoFisica(aluno_id=aluno.id, professor_id=professor.id, **dados.model_dump())
 
@@ -47,15 +43,9 @@ def criar_avaliacao(aluno_id: int, dados: AvaliacaoCriar, professor=Depends(veri
     return montar_avaliacao(avaliacao)
 
 @router.get("/alunos/{aluno_id}/avaliacoes", response_model=list[AvaliacaoResposta])
-def listar_avaliacoes_do_aluno(aluno_id: int, professor=Depends(verificar_professor), db: Session = Depends(get_db)):
+def listar_avaliacoes_do_aluno(aluno_id: int, ator=Depends(verificar_professor_ou_admin), db: Session = Depends(get_db)):
 
-    aluno = db.scalar(select(Aluno).where(Aluno.id == aluno_id))
-
-    if not aluno:
-        raise HTTPException(
-            status_code=404,
-            detail="Aluno não encontrado"
-        )
+    aluno = obter_aluno_acessivel(db, ator, aluno_id)
 
     avaliacoes = db.scalars(
         select(AvaliacaoFisica).where(AvaliacaoFisica.aluno_id == aluno.id)

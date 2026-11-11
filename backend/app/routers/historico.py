@@ -3,10 +3,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
 from ..database import get_db
-from ..core.seguranca import verificar_aluno, verificar_professor
+from ..core.seguranca import verificar_aluno, verificar_professor_ou_admin
 from ..schemas.ficha import ExecucaoHistorico, HistoricoResposta
-from ..models import Aluno, Ficha, ItemFicha, HistoricoExecucao, Treino
+from ..models import Ficha, ItemFicha, HistoricoExecucao, Treino
 from ..services.sessoes import buscar_sessao_do_aluno, exigir_sessao_aberta
+from ..services.acesso_aluno import obter_aluno_acessivel
 
 router = APIRouter()
 
@@ -35,7 +36,7 @@ def treino_realizado(dados: ExecucaoHistorico, aluno=Depends(verificar_aluno), d
         )
 
     ficha = db.scalar(select(Ficha).where(Ficha.id == item_ficha.ficha_id, 
-    Ficha.aluno_id == aluno.id, Ficha.ativo.is_(True)))
+    Ficha.aluno_id == aluno.id, Ficha.ativo.is_(True), Ficha.status == "publicada"))
     
     if not ficha:
         raise HTTPException(
@@ -80,15 +81,9 @@ def historico_progresso(aluno=Depends(verificar_aluno), db: Session = Depends(ge
     return historicos
 
 @router.get("/alunos/{aluno_id}/historico", response_model=list[HistoricoResposta])
-def historico_do_aluno(aluno_id: int, professor=Depends(verificar_professor), db: Session = Depends(get_db)):
+def historico_do_aluno(aluno_id: int, ator=Depends(verificar_professor_ou_admin), db: Session = Depends(get_db)):
 
-    aluno = db.scalar(select(Aluno).where(Aluno.id == aluno_id))
-
-    if not aluno:
-        raise HTTPException(
-            status_code=404,
-            detail="Aluno não encontrado"
-        )
+    aluno = obter_aluno_acessivel(db, ator, aluno_id)
 
     return db.scalars(
         select(HistoricoExecucao).options(_com_exercicio).where(HistoricoExecucao.aluno_id == aluno.id)

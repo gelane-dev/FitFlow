@@ -70,13 +70,14 @@ def test_evolucao_perfil_errado_403(client, professor_headers, exercicio_id):
 def test_evolucao_visao_do_professor(client, db, professor_headers, outro_professor_headers, aluno_headers,
                                      aluno_id, item_id, exercicio_id):
     _popular(db, aluno_id, item_id)
-    # qualquer professor acessa (ADR-022)
-    for headers in (professor_headers, outro_professor_headers):
-        resumo = client.get(f"/alunos/{aluno_id}/evolucao/exercicios", headers=headers)
-        assert resumo.status_code == 200
-        assert resumo.json()[0]["total_registros"] == 3
-        detalhe = client.get(f"/alunos/{aluno_id}/evolucao/exercicios/{exercicio_id}", headers=headers)
-        assert len(detalhe.json()["pontos"]) == 2
+    # contrato de gestão (ADR-033, substitui o ADR-022): só o professor vinculado acessa
+    resumo = client.get(f"/alunos/{aluno_id}/evolucao/exercicios", headers=professor_headers)
+    assert resumo.status_code == 200
+    assert resumo.json()[0]["total_registros"] == 3
+    detalhe = client.get(f"/alunos/{aluno_id}/evolucao/exercicios/{exercicio_id}", headers=professor_headers)
+    assert len(detalhe.json()["pontos"]) == 2
+    assert client.get(f"/alunos/{aluno_id}/evolucao/exercicios", headers=outro_professor_headers).status_code == 404
+    assert client.get(f"/alunos/{aluno_id}/evolucao/exercicios/{exercicio_id}", headers=outro_professor_headers).status_code == 404
 
 
 def test_evolucao_visao_do_professor_erros(client, professor_headers, aluno_headers, aluno_id, exercicio_id):

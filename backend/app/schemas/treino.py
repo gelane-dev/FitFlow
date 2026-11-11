@@ -4,14 +4,14 @@ from ..enums.dia_semana import DiaSemana
 class TreinoCriar(BaseModel):
     ficha_id: int
     nome: str
-    dia_semana: DiaSemana
+    dia_semana: DiaSemana | None = None
     ordem: int
 
 class TreinoResposta(BaseModel):
     id: int
     ficha_id: int
     nome: str
-    dia_semana: DiaSemana
+    dia_semana: DiaSemana | None = None
     ordem: int
     total_itens: int = 0
 
@@ -19,7 +19,7 @@ class TreinoResposta(BaseModel):
 
 class AtualizarTreino(BaseModel):
     nome: str
-    dia_semana: DiaSemana
+    dia_semana: DiaSemana | None = None
     ordem: int
 
 class ItemTreinoDiaResposta(BaseModel):
@@ -37,6 +37,7 @@ class ItemTreinoDiaResposta(BaseModel):
     grupo_muscular: str
     imagem: str | None
     video: str | None
+    observacao: str | None = None
 
 class TreinoDiaResposta(BaseModel):
     id: int

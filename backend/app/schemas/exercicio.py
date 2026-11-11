@@ -4,11 +4,13 @@ class ExercicioCriar(BaseModel):
     nome: str
     descricao: str
     grupo_muscular: str
+    instrucoes: str | None = None
 
 class ExercicioAtualizar(BaseModel):
     nome: str
     descricao: str
     grupo_muscular: str
+    instrucoes: str | None = None
 
 class ExercicioResposta(BaseModel):
     id: int
@@ -17,6 +19,8 @@ class ExercicioResposta(BaseModel):
     grupo_muscular: str
     imagem: str | None = None
     video: str | None = None
+    instrucoes: str | None = None
+    criado_por_professor_id: int | None = None
 
     model_config = ConfigDict(
         from_attributes=True

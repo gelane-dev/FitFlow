@@ -29,11 +29,16 @@ def test_fluxo_completo(client, db, admin_headers, ids_divergentes):
         "telefone": "11988887777", "data_nascimento": "2001-02-03",
     })
     assert r.status_code == 200, r.text
+    # contrato de gestão: cadastro público nasce pendente; a recepção aprova e o admin vincula ao professor
+    aluno = db.query(Aluno).join(User, Aluno.user_id == User.id).filter(User.email == "aluno.fluxo@teste.com").one()
+    assert aluno.status_cadastro == "pendente"
+    assert aluno.id != aluno.user_id
+    aluno.status_cadastro = "aprovado"
+    aluno.professor_id = db.query(Professor).join(User, Professor.user_id == User.id).filter(User.email == "prof.fluxo@teste.com").one().id
+    db.commit()
+
     aluno_h = _login(client, "aluno.fluxo@teste.com", "abc12345")
     prof_h = _login(client, "prof.fluxo@teste.com", "senha123")
-
-    aluno = db.query(Aluno).join(User, Aluno.user_id == User.id).filter(User.email == "aluno.fluxo@teste.com").one()
-    assert aluno.id != aluno.user_id
 
     # professor cria exercício, ficha, treino (hoje) e item
     r = client.post("/exercicios", json={"nome": "Agachamento", "descricao": "Perna", "grupo_muscular": "perna"}, headers=prof_h)

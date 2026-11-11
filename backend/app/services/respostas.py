@@ -21,4 +21,5 @@ def montar_item_treino(item: ItemFicha, exercicio: Exercicio | None = None) -> I
         grupo_muscular=exercicio.grupo_muscular,
         imagem=exercicio.imagem,
         video=exercicio.video,
+        observacao=item.observacao,
     )

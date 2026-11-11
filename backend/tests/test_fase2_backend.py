@@ -19,7 +19,7 @@ def test_perfil_tem_tipo_e_foto(client, professor_headers):
     corpo = r.json()
     assert corpo["tipo"] == "professor"
     assert corpo["foto"] is None
-    assert set(corpo) == {"id", "email", "tipo", "foto"}
+    assert set(corpo) == {"id", "email", "tipo", "foto", "ativo"}
 
 
 def test_cadastro_retorna_tipo_e_foto(client):

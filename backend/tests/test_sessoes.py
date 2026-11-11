@@ -172,7 +172,7 @@ def test_obter_sessao_por_aluno_professor_e_negados(client, professor_headers, o
     url = f"/sessoes/{sessao['id']}"
     assert client.get(url, headers=aluno_headers).status_code == 200
     assert client.get(url, headers=professor_headers).status_code == 200
-    assert client.get(url, headers=outro_professor_headers).status_code == 200  # ADR-022
+    assert client.get(url, headers=outro_professor_headers).status_code == 404  # GB-01: só o professor vinculado (substitui o ADR-022)
     assert client.get(url, headers=outro_aluno_headers).status_code == 404
     assert client.get(url, headers=admin_headers).status_code == 403
     assert client.get("/sessoes/999", headers=aluno_headers).status_code == 404
