@@ -228,7 +228,7 @@ describe('Tela: respiro e véu na status bar (P-08, P-11)', () => {
 });
 
 describe('CabecalhoDetalhe: fallback do voltar por perfil (S-4)', () => {
-  function comPerfil(tipo: 'professor' | 'aluno' | 'admin' | null) {
+  function comPerfil(tipo: 'professor' | 'aluno' | 'admin' | 'recepcao' | null) {
     return (
       <ContextoAutenticacao.Provider
         value={{ usuario: tipo ? ({ tipo } as never) : null } as never}
@@ -249,7 +249,8 @@ describe('CabecalhoDetalhe: fallback do voltar por perfil (S-4)', () => {
   it.each([
     ['professor', '/painel'],
     ['aluno', '/aluno'],
-    ['admin', '/aluno'],
+    ['admin', '/admin'],
+    ['recepcao', '/recepcao'],
   ] as const)('%s sem histórico vai para %s', async (tipo, rota) => {
     await render(comPerfil(tipo));
 
@@ -309,6 +310,19 @@ describe('TelaLista e TelaSecoes (I-1)', () => {
 
     expect(screen.getByText('vazio')).toBeTruthy();
     expect(screen.queryByText('item')).toBeNull();
+  });
+
+  it('o vazio vai dentro de uma View que recebe o onLayout da lista, não de um Fragment (QA-GA-03)', async () => {
+    await renderizar(
+      <>
+        <TelaLista dados={[] as { id: number }[]} chave={(i) => String(i.id)} vazio={<Text>vazio</Text>} renderItem={() => <Text>item</Text>} />
+        <TelaSecoes<{ id: number }, { titulo: string }> secoes={[]} chave={(i) => String(i.id)} vazio={<Text>vazio 2</Text>} renderItem={() => <Text>item</Text>} />
+      </>,
+    );
+
+    for (const texto of ['vazio', 'vazio 2']) {
+      expect(typeof screen.getByText(texto).parent?.props.onLayout).toBe('function');
+    }
   });
 
   it('TelaSecoes renderiza os títulos das seções e seus itens', async () => {

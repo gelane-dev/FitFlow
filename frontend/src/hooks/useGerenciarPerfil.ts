@@ -7,6 +7,7 @@ import {
   alterarSenha,
   atualizarPerfilAluno,
   atualizarPerfilProfessor,
+  atualizarPerfilRecepcao,
   enviarFotoPerfil,
   removerFotoPerfil,
 } from '@/services/usuario.service';
@@ -55,6 +56,8 @@ export function useGerenciarPerfil() {
           telefone: dados.telefone,
           data_nascimento: dados.dataNascimento,
         });
+      } else if (usuario?.tipo === 'recepcao') {
+        await atualizarPerfilRecepcao({ nome: dados.nome, telefone: dados.telefone });
       } else {
         await atualizarPerfilProfessor({
           nome: dados.nome,

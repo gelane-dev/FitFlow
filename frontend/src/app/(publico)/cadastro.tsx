@@ -51,9 +51,10 @@ export default function Cadastro() {
     });
 
     if (sucesso) {
-      // Navega sem depender do botão do alerta (na web ele pode não rodar).
+      // O aluno nasce pendente (Contrato-Gestao): volta ao login sem tentar entrar. Navega sem
+      // depender do botão do alerta (na web ele pode não rodar).
       router.replace('/');
-      mostrarAlerta('Cadastro realizado', 'Sua conta foi criada com sucesso.');
+      mostrarAlerta('Cadastro enviado', 'Aguarde a aprovação da recepção.');
     }
   }
 

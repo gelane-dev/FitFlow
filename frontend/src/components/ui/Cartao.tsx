@@ -14,10 +14,12 @@ export interface CartaoProps {
   semPadding?: boolean;
   style?: StyleProp<ViewStyle>;
   testID?: string;
+  /** O cartão clicável contém botões próprios: evita `<button>` dentro de `<button>` na web (ver `Pressionavel`). */
+  contemControles?: boolean;
 }
 
 /** Cartão padrão: fundo superficie, borda de 1 px, sem sombra. */
-export function Cartao({ children, onPress, elevado, semPadding, style, testID }: CartaoProps) {
+export function Cartao({ children, onPress, elevado, semPadding, style, testID, contemControles }: CartaoProps) {
   const estiloBase = [
     estilos.cartao,
     elevado && { backgroundColor: cores.superficieElevada },
@@ -31,6 +33,7 @@ export function Cartao({ children, onPress, elevado, semPadding, style, testID }
         onPress={onPress}
         style={estiloBase}
         haptico="leve"
+        contemControles={contemControles}
         testID={testID}
         accessibilityRole="button"
       >

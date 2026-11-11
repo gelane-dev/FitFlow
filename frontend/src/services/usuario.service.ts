@@ -1,6 +1,10 @@
 import { api } from './api';
 import { TIMEOUT_LOGIN_MS } from './auth.service';
 import {
+  PerfilRecepcao,
+  PerfilRecepcaoAtualizar,
+} from '@/types/gestao.types';
+import {
   AlterarEmailRequest,
   AlterarSenhaRequest,
   ArquivoUpload,
@@ -41,6 +45,20 @@ export async function atualizarPerfilProfessor(
   dados: PerfilProfessorAtualizar
 ): Promise<void> {
   await api.put('/perfil/professor', dados);
+}
+
+export async function buscarPerfilRecepcao(): Promise<PerfilRecepcao> {
+  const resposta = await api.get<PerfilRecepcao>('/perfil/recepcao');
+
+  return resposta.data;
+}
+
+export async function atualizarPerfilRecepcao(
+  dados: PerfilRecepcaoAtualizar
+): Promise<PerfilRecepcao> {
+  const resposta = await api.put<PerfilRecepcao>('/perfil/recepcao', dados);
+
+  return resposta.data;
 }
 
 export async function alterarEmail(

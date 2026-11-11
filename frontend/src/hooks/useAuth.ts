@@ -1,7 +1,7 @@
 import { useContext, useState } from 'react';
 
 import { ContextoAutenticacao } from '@/contexts/AuthContext';
-import { mensagemErro } from '@/utils/erroApi';
+import { mensagemErroLogin } from '@/utils/erroApi';
 import { LoginRequest } from '@/types/auth.types';
 
 export function useAuth() {
@@ -17,7 +17,7 @@ export function useAuth() {
 
       await contexto.entrar(dados);
     } catch (erro) {
-      setErro(mensagemErro(erro, 'Erro ao realizar login.'));
+      setErro(mensagemErroLogin(erro));
     } finally {
       setCarregando(false);
     }

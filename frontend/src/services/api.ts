@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { Platform } from 'react-native';
 
 import { deleteToken, getToken } from '@/storage/secureStorage';
 
@@ -10,6 +11,14 @@ export const api = axios.create({
 
 api.interceptors.request.use(
   async (config) => {
+    // Web (ADR-034): sessão por cookie HttpOnly. O header força o preflight de CORS (proteção CSRF).
+    if (Platform.OS === 'web') {
+      config.withCredentials = true;
+      config.headers['X-FitFlow-Client'] = 'web';
+
+      return config;
+    }
+
     const token = await getToken();
 
     if (token) {
@@ -20,7 +29,8 @@ api.interceptors.request.use(
   },
 );
 
-type CallbackSessaoExpirada = () => void;
+/** Recebe o `detail` do 401 (ex.: "Conta desativada"), para a tela de login explicar o motivo. */
+type CallbackSessaoExpirada = (motivo?: string) => void;
 
 let aoSessaoExpirada: CallbackSessaoExpirada | null = null;
 
@@ -47,7 +57,7 @@ api.interceptors.response.use(
       !ehErroDeCredencial
     ) {
       await deleteToken();
-      aoSessaoExpirada?.();
+      aoSessaoExpirada?.(erro.response?.data?.detail);
     }
 
     return Promise.reject(erro);

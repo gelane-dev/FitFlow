@@ -19,3 +19,8 @@ export async function cadastro(
 
   return resposta.data;
 }
+
+/** Encerra a sessão no servidor (apaga o cookie da web, ADR-034). */
+export async function logout(): Promise<void> {
+  await api.post('/logout');
+}

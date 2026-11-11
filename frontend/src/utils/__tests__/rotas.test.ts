@@ -1,10 +1,12 @@
 import { rotaExecucaoTreino, rotaInicialDoPerfil, rotaPreviaTreino } from '@/utils/rotas';
 
 describe('rotaInicialDoPerfil', () => {
-  it('professor em /painel; aluno e admin em /aluno; sem login em /', () => {
+  it('admin em /admin; recepção em /recepcao; professor em /painel; aluno em /aluno; sem login em /', () => {
+    expect(rotaInicialDoPerfil('admin')).toBe('/admin');
+    expect(rotaInicialDoPerfil('recepcao')).toBe('/recepcao');
     expect(rotaInicialDoPerfil('professor')).toBe('/painel');
     expect(rotaInicialDoPerfil('aluno')).toBe('/aluno');
-    expect(rotaInicialDoPerfil('admin')).toBe('/aluno');
+    expect(rotaInicialDoPerfil('desconhecido')).toBe('/');
     expect(rotaInicialDoPerfil(undefined)).toBe('/');
     expect(rotaInicialDoPerfil(null)).toBe('/');
   });

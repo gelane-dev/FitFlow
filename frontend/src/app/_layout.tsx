@@ -44,10 +44,13 @@ function Rotas() {
   }
 
   const ehProfessor = usuario?.tipo === 'professor';
-  const ehAlunoOuAdmin = usuario?.tipo === 'aluno' || usuario?.tipo === 'admin';
+  const ehAluno = usuario?.tipo === 'aluno';
+  const ehAdmin = usuario?.tipo === 'admin';
+  const ehRecepcao = usuario?.tipo === 'recepcao';
 
-  // Os grupos (publico), (professor) e (aluno) não aparecem na URL: os paths
-  // continuam /, /cadastro, /fichas, /aluno/... (ADR-031).
+  // Os grupos (publico), (professor), (aluno), (admin) e (recepcao) não aparecem na URL: os paths
+  // continuam /, /cadastro, /fichas, /aluno/..., /admin/..., /recepcao/... (ADR-031).
+  // O admin tem grupo próprio e deixou de entrar em (aluno) (TD-50).
   return (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: cores.fundo } }}>
       <Stack.Protected guard={!usuario}>
@@ -58,8 +61,16 @@ function Rotas() {
         <Stack.Screen name="(professor)" />
       </Stack.Protected>
 
-      <Stack.Protected guard={ehAlunoOuAdmin}>
+      <Stack.Protected guard={ehAluno}>
         <Stack.Screen name="(aluno)" />
+      </Stack.Protected>
+
+      <Stack.Protected guard={ehAdmin}>
+        <Stack.Screen name="(admin)" />
+      </Stack.Protected>
+
+      <Stack.Protected guard={ehRecepcao}>
+        <Stack.Screen name="(recepcao)" />
       </Stack.Protected>
     </Stack>
   );

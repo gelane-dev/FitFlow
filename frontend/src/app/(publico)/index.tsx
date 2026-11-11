@@ -18,9 +18,10 @@ export default function Login() {
   const [senha, setSenha] = useState('');
   const insets = useSafeAreaInsets();
 
-  const { entrar, erro, carregando } = useAuth();
+  const { entrar, erro, avisoLogin, carregando } = useAuth();
 
-  useAlertaErro(erro);
+  // Erro do login ou motivo do logout forçado (ex.: "Conta desativada")
+  useAlertaErro(erro ?? avisoLogin);
 
   const refSenha = useRef<TextInput>(null);
   const { erros, tentar } = useErrosAposTentativa<CampoLogin>(() => validarLogin({ email, senha }));
@@ -33,7 +34,7 @@ export default function Login() {
     await entrar({ email, senha });
 
     // A guarda de rotas (_layout.tsx) decide o destino conforme o perfil:
-    // professor -> /painel, aluno/admin -> /aluno.
+    // admin -> /admin, recepção -> /recepcao, professor -> /painel, aluno -> /aluno.
   }
 
   return (

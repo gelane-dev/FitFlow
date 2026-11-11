@@ -1,7 +1,20 @@
-import { TextStyle } from 'react-native';
+import { Platform, TextStyle } from 'react-native';
 
 /** Orbitron só para títulos grandes, números de estatística e a marca. */
 export const fonteDisplay = 'OrbitronMedium';
+
+/**
+ * Fonte do sistema (corpo do app). Texto de SVG (gráficos) não herda a fonte do RN e cai na serifada
+ * padrão do navegador; passe `fonteCorpo` no `fontFamily` desses textos (QA-GA-05). No app nativo é
+ * `undefined`, e a fonte padrão do sistema já vale.
+ */
+export function fonteCorpoPara(sistema: string): string | undefined {
+  return sistema === 'web'
+    ? 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
+    : undefined;
+}
+
+export const fonteCorpo = fonteCorpoPara(Platform.OS);
 
 export const tamanhos = {
   tituloTela: 34,

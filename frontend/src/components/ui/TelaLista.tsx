@@ -56,6 +56,8 @@ function useEstiloLista(abas: boolean, espacoInferior: number) {
   };
 }
 
+// O VirtualizedList clona o ListEmptyComponent injetando `onLayout`; um Fragment não aceita essa prop
+// (aviso "Invalid prop onLayout supplied to React.Fragment" na web, QA-GA-03), então vai dentro de uma View.
 function controleAtualizar(aoAtualizar?: () => void, atualizando = false) {
   return aoAtualizar ? (
     <RefreshControl
@@ -96,7 +98,7 @@ export function TelaLista<T>({
         keyExtractor={chave}
         contentContainerStyle={estiloConteudo}
         ListHeaderComponent={<>{cabecalho}</>}
-        ListEmptyComponent={<>{vazio}</>}
+        ListEmptyComponent={<View>{vazio}</View>}
         ListFooterComponent={<>{rodape}</>}
         refreshControl={controleAtualizar(aoAtualizar, atualizando)}
         onEndReached={aoChegarAoFim}
@@ -139,7 +141,7 @@ export function TelaSecoes<T, S = unknown>({
         stickySectionHeadersEnabled={false}
         contentContainerStyle={estiloConteudo}
         ListHeaderComponent={<>{cabecalho}</>}
-        ListEmptyComponent={<>{vazio}</>}
+        ListEmptyComponent={<View>{vazio}</View>}
         ListFooterComponent={<>{rodape}</>}
         refreshControl={controleAtualizar(aoAtualizar, atualizando)}
         onEndReached={aoChegarAoFim}

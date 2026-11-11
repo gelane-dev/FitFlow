@@ -6,6 +6,8 @@ export const cores = {
   borda: '#26262A',
   bordaForte: '#34343A',
   primaria: '#FECF2B',
+  /** Amarelo translúcido: fundo do item ativo da sidebar e seleções suaves. */
+  primariaSuave: 'rgba(254, 207, 43, 0.14)',
   primariaPressionada: '#E6B800',
   sobrePrimaria: '#0A0A0B',
   texto: '#FFFFFF',

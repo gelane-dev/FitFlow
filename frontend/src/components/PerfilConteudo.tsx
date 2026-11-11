@@ -30,6 +30,7 @@ const ROTULO_TIPO = {
   aluno: 'Aluno',
   professor: 'Professor',
   admin: 'Administrador',
+  recepcao: 'Recepção',
 } as const;
 
 /**
@@ -62,7 +63,8 @@ export function PerfilConteudo() {
   useAlertaErro(erro);
 
   const ehAluno = usuario?.tipo === 'aluno';
-  const temDados = usuario?.tipo === 'aluno' || usuario?.tipo === 'professor';
+  const temDados =
+    usuario?.tipo === 'aluno' || usuario?.tipo === 'professor' || usuario?.tipo === 'recepcao';
   const ocupado = carregando || carregandoPerfil;
 
   async function aoSalvarDados() {

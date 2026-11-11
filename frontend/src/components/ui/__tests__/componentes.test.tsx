@@ -7,7 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { Avatar, iniciais } from '@/components/ui/Avatar';
 import { BarraAbas } from '@/components/ui/BarraAbas';
-import { BlocoEstatistica } from '@/components/ui/BlocoEstatistica';
+import { BlocoEstatistica, tamanhoFonteEstatistica } from '@/components/ui/BlocoEstatistica';
 import { Botao, estiloVariante } from '@/components/ui/Botao';
 import { CabecalhoDetalhe } from '@/components/ui/CabecalhoDetalhe';
 import { CabecalhoGrande } from '@/components/ui/CabecalhoGrande';
@@ -371,5 +371,18 @@ describe('BarraAbas', () => {
     await fireEvent.press(screen.getByTestId('aba-Fichas'));
 
     expect(navigation.navigate).not.toHaveBeenCalled();
+  });
+});
+
+describe('BlocoEstatistica (valor nunca cortado, QA-GA-08)', () => {
+  it('reduz a fonte conforme o comprimento, sem reticências, e mantém o valor completo no rótulo', async () => {
+    expect(tamanhoFonteEstatistica(12)).toBeGreaterThan(tamanhoFonteEstatistica('18,6 mil', 'kg'));
+    expect(tamanhoFonteEstatistica('9.850', 'kg')).toBeGreaterThan(tamanhoFonteEstatistica('18,6 mil', 'kg'));
+    expect(tamanhoFonteEstatistica('1.250 mil', 'kg')).toBeLessThan(tamanhoFonteEstatistica('18,6 mil', 'kg'));
+
+    await render(<BlocoEstatistica valor="18,6 mil" valorCompleto="18.600" unidade="kg" rotulo="Volume" />);
+
+    expect(screen.getByLabelText('Volume: 18.600 kg')).toBeTruthy();
+    expect(screen.getByText(/18,6 mil/).props.numberOfLines).toBeUndefined();
   });
 });

@@ -1,5 +1,6 @@
 import type { AxiosAdapter, AxiosRequestConfig } from 'axios';
 import { AxiosError } from 'axios';
+import { Platform } from 'react-native';
 
 import { api, registrarSessaoExpirada } from '@/services/api';
 import { deleteToken, getToken } from '@/storage/secureStorage';
@@ -93,6 +94,14 @@ describe('interceptor de 401', () => {
     expect(aoExpirar).toHaveBeenCalledTimes(1);
   });
 
+  it('repassa o detail do 401 ao callback, para o login explicar "Conta desativada" (GB-10)', async () => {
+    responderCom(401, { detail: 'Conta desativada' });
+
+    await expect(api.get('/perfil')).rejects.toMatchObject({ response: { status: 401 } });
+
+    expect(aoExpirar).toHaveBeenCalledWith('Conta desativada');
+  });
+
   it('não desloga quando o 401 vem de PUT /perfil/senha com "Senha atual incorreta"', async () => {
     responderCom(401, { detail: 'Senha atual incorreta' });
 
@@ -151,5 +160,55 @@ describe('interceptor de 401', () => {
       data: { ok: true },
     });
     expect(aoExpirar).not.toHaveBeenCalled();
+  });
+});
+
+describe('sessão por cookie na web (ADR-034)', () => {
+  function capturar() {
+    const capturada: { config?: AxiosRequestConfig } = {};
+    api.defaults.adapter = (config) => {
+      capturada.config = config;
+
+      return Promise.resolve({ data: {}, status: 200, statusText: '', headers: {}, config });
+    };
+
+    return capturada;
+  }
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('envia credenciais e o header X-FitFlow-Client, sem Bearer nem leitura de token', async () => {
+    jest.replaceProperty(Platform, 'OS', 'web');
+    getTokenMock.mockResolvedValue('nao-deveria-usar');
+    const capturada = capturar();
+
+    await api.post('/logout');
+
+    expect(capturada.config?.withCredentials).toBe(true);
+    expect(capturada.config?.headers?.['X-FitFlow-Client']).toBe('web');
+    expect(capturada.config?.headers?.Authorization).toBeUndefined();
+    expect(getTokenMock).not.toHaveBeenCalled();
+  });
+
+  it('no mobile não envia o header nem credenciais', async () => {
+    getTokenMock.mockResolvedValue('abc');
+    const capturada = capturar();
+
+    await api.get('/perfil');
+
+    expect(capturada.config?.withCredentials).toBeFalsy();
+    expect(capturada.config?.headers?.['X-FitFlow-Client']).toBeUndefined();
+    expect(capturada.config?.headers?.Authorization).toBe('Bearer abc');
+  });
+
+  it('o 401 continua deslogando na web', async () => {
+    jest.replaceProperty(Platform, 'OS', 'web');
+    responderCom(401, { detail: 'Token inválido' });
+
+    await expect(api.get('/perfil')).rejects.toBeDefined();
+
+    expect(aoExpirar).toHaveBeenCalledTimes(1);
   });
 });

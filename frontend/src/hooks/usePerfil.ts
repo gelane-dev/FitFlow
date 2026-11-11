@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import {
   buscarPerfilAluno,
   buscarPerfilProfessor,
+  buscarPerfilRecepcao,
 } from '@/services/usuario.service';
 import { ErroApi } from '@/types/api.types';
 import { formatarData } from '@/utils/datas';
@@ -21,7 +22,7 @@ export function usePerfil() {
   const [erro, setErro] = useState<string | null>(null);
 
   const recarregar = useCallback(async () => {
-    if (tipo !== 'aluno' && tipo !== 'professor') {
+    if (tipo !== 'aluno' && tipo !== 'professor' && tipo !== 'recepcao') {
       return;
     }
 
@@ -34,6 +35,10 @@ export function usePerfil() {
         setNome(perfil.nome);
         setTelefone(perfil.telefone);
         setDataNascimento(formatarData(perfil.data_nascimento));
+      } else if (tipo === 'recepcao') {
+        const perfil = await buscarPerfilRecepcao();
+        setNome(perfil.nome);
+        setTelefone(perfil.telefone);
       } else {
         const perfil = await buscarPerfilProfessor();
         setNome(perfil.nome);

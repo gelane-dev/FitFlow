@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { Pressable, PressableProps, StyleProp, ViewStyle } from 'react-native';
+import { Platform, Pressable, PressableProps, StyleProp, ViewStyle } from 'react-native';
 
 import { IntensidadeHaptica, tocarHaptico } from './haptics';
 
@@ -10,6 +10,13 @@ export interface PressionavelProps extends Omit<PressableProps, 'style' | 'child
   escala?: number;
   /** Intensidade do haptics ao tocar; `false` desliga. Padrão: nenhum. */
   haptico?: IntensidadeHaptica | false;
+  /**
+   * A área pressionável contém outros botões (ex.: linha clicável com "Aprovar"/"Recusar").
+   * Na web `role="button"` vira `<button>`, e botão dentro de botão é HTML inválido (aviso do React,
+   * leitura ambígua). Com esta prop o contêiner vira um `div` focável (`role="group"`, Enter aciona)
+   * e os botões internos continuam botões. No app nativo nada muda.
+   */
+  contemControles?: boolean;
 }
 
 /** Base de todo toque do app: escala + opacidade ao pressionar e haptics opcional. */
@@ -20,11 +27,20 @@ export function Pressionavel({
   haptico = false,
   onPress,
   disabled,
+  contemControles = false,
   ...rest
 }: PressionavelProps) {
+  const semBotaoNaWeb = contemControles && Platform.OS === 'web';
+
   return (
     <Pressable
       {...rest}
+      {...(semBotaoNaWeb ? {
+            accessibilityRole: undefined,
+            role: 'group' as const,
+            // Sem isso o leitor de tela lê o conteúdo mas não anuncia que a linha abre algo.
+            'aria-roledescription': 'item acionável',
+          } : null)}
       disabled={disabled}
       onPress={(evento) => {
         if (haptico) {
