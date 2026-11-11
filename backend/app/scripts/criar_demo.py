@@ -18,7 +18,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..core.seguranca import criar_hash
-from ..core.tempo import agora
+from ..core.tempo import agora, agora_naive
 from ..database import SessionLocal
 from ..enums.dia_semana import DiaSemana
 from ..models import (
@@ -97,7 +97,7 @@ def _usuario(db: Session, email: str, tipo: str) -> tuple[User, bool]:
     usuario = db.scalar(select(User).where(User.email == email))
     if usuario:
         return usuario, False
-    usuario = User(email=email, senha=criar_hash(SENHA_DEMO), tipo=tipo)
+    usuario = User(email=email, senha=criar_hash(SENHA_DEMO), tipo=tipo, criado_em=agora_naive())
     db.add(usuario)
     db.flush()
     return usuario, True
@@ -268,9 +268,18 @@ def _avaliacoes(db: Session, aluno: Aluno, professor: Professor) -> int:
     return 2
 
 
+def _vincular_ao_professor(db: Session, aluno: Aluno, professor: Professor) -> None:
+    """Aluno demo sem professor passa a ser do professor demo (escopo do professor, ADR-033); idempotente."""
+    if aluno.professor_id is None:
+        aluno.professor_id = professor.id
+        aluno.professor_vinculado_em = agora_naive()
+        db.flush()
+
+
 def criar_demo(db: Session) -> dict[str, int]:
     professor = _professor(db)
     aluno = _aluno(db)
+    _vincular_ao_professor(db, aluno, professor)
     exercicios = _exercicios(db)
     ficha, ficha_nova = _ficha(db, aluno, professor, exercicios)
     sessoes = _sessoes(db, aluno, ficha)

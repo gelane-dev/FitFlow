@@ -162,9 +162,18 @@ def outro_aluno_headers(db, ids_divergentes):
     return _headers(_criar_usuario(db, "aluno2@teste.com", "aluno", "Aluno 2"))
 
 
+def vincular(db, aluno_nome, professor_nome):
+    """Vincula o aluno ao professor (escopo do professor, ADR-033)."""
+    aluno = db.query(Aluno).filter(Aluno.nome == aluno_nome).one()
+    aluno.professor_id = db.query(Professor).filter(Professor.nome == professor_nome).one().id
+    db.commit()
+    return aluno.id
+
+
 @pytest.fixture
-def aluno_id(db, aluno_headers):
-    return db.query(Aluno).filter(Aluno.nome == "Aluno").one().id
+def aluno_id(db, aluno_headers, professor_headers):
+    """Aluno vinculado ao professor_headers ("Professor")."""
+    return vincular(db, "Aluno", "Professor")
 
 
 @pytest.fixture

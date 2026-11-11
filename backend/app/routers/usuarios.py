@@ -15,15 +15,20 @@ from ..schemas.usuario import (
     ProfessorResposta,
     EmailAtualizar,
     SenhaAtualizar,
+    RecepcionistaPerfilAtualizar,
+    RecepcionistaPerfilResposta,
 )
-from ..models import User, Professor, Aluno
+from ..models import User, Professor, Aluno, Recepcionista
 from ..services.cloudinary import upload_imagem, deletar_imagem
+from ..services.acesso_aluno import obter_aluno_acessivel
 from ..core.seguranca import (
     criar_hash,
     verificar_senha,
     verificar_token,
     verificar_professor,
+    verificar_professor_ou_admin,
     verificar_aluno,
+    exigir_papeis,
 )
 
 router = APIRouter()
@@ -51,22 +56,21 @@ def _apagar_foto_antiga(public_id: str | None, caminho: Path | None):
 
 
 @router.get("/alunos", response_model=list[AlunoResposta])
-def listar_alunos(professor=Depends(verificar_professor), db: Session = Depends(get_db)):
-    alunos = db.scalars(
-        select(Aluno).order_by(Aluno.nome)
-    ).all()
+def listar_alunos(ator=Depends(verificar_professor_ou_admin), db: Session = Depends(get_db)):
+    consulta = select(Aluno).order_by(Aluno.nome)
 
-    return alunos
+    tipo, perfil = ator
+    if tipo == "professor":
+        # Escopo do professor: só os alunos vinculados a ele (ADR-033)
+        consulta = consulta.where(Aluno.professor_id == perfil.id)
+
+    return db.scalars(consulta).all()
 
 
 @router.get("/alunos/{aluno_id}", response_model=AlunoResposta)
-def obter_aluno(aluno_id: int, professor=Depends(verificar_professor), db: Session = Depends(get_db)):
-    aluno = db.scalar(select(Aluno).where(Aluno.id == aluno_id))
+def obter_aluno(aluno_id: int, ator=Depends(verificar_professor_ou_admin), db: Session = Depends(get_db)):
 
-    if not aluno:
-        raise HTTPException(status_code=404, detail="Aluno não encontrado")
-
-    return aluno
+    return obter_aluno_acessivel(db, ator, aluno_id)
 
 
 @router.get("/perfil", response_model=UsuarioResposta)
@@ -101,6 +105,36 @@ def meu_perfil_professor(professor=Depends(verificar_professor), verificar: dict
         )
 
     return usuario
+
+
+def _perfil_recepcionista(db: Session, usuario: User) -> Recepcionista:
+    perfil = db.scalar(select(Recepcionista).where(Recepcionista.user_id == usuario.id))
+
+    if not perfil:
+        raise HTTPException(status_code=404, detail="Perfil de recepção não encontrado")
+
+    return perfil
+
+
+@router.get("/perfil/recepcao", response_model=RecepcionistaPerfilResposta)
+def meu_perfil_recepcao(usuario: User = Depends(exigir_papeis("recepcao")), db: Session = Depends(get_db)):
+    return _perfil_recepcionista(db, usuario)
+
+
+@router.put("/perfil/recepcao", response_model=RecepcionistaPerfilResposta)
+def atualizar_perfil_recepcao(
+    dados: RecepcionistaPerfilAtualizar,
+    usuario: User = Depends(exigir_papeis("recepcao")),
+    db: Session = Depends(get_db),
+):
+    """Atualiza nome e telefone; as permissões só o admin altera."""
+    perfil = _perfil_recepcionista(db, usuario)
+    perfil.nome = dados.nome
+    perfil.telefone = dados.telefone
+    db.commit()
+    db.refresh(perfil)
+
+    return perfil
 
 
 @router.get("/perfil/aluno", response_model=AlunoResposta)

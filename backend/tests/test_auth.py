@@ -1,13 +1,23 @@
+from app.models import Aluno
+
 DADOS = {
     "email": "novo@teste.com", "senha": "abc12345", "nome": "Novo",
     "telefone": "11988887777", "data_nascimento": "2001-02-03",
 }
 
 
-def test_cadastro_e_login(client):
+def test_cadastro_e_login(client, db):
     r = client.post("/cadastro", json=DADOS)
     assert r.status_code == 200
     assert r.json()["email"] == "novo@teste.com"
+
+    # contrato de gestão (ADR-033): o cadastro público nasce pendente e só entra depois de aprovado
+    r = client.post("/login", json={"email": DADOS["email"], "senha": DADOS["senha"]})
+    assert r.status_code == 403
+    assert r.json()["detail"] == "Cadastro aguardando aprovação da recepção"
+
+    db.query(Aluno).filter(Aluno.nome == "Novo").one().status_cadastro = "aprovado"
+    db.commit()
 
     r = client.post("/login", json={"email": DADOS["email"], "senha": DADOS["senha"]})
     assert r.status_code == 200

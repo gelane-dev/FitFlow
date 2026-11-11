@@ -8,7 +8,7 @@ class Treino(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     ficha_id: Mapped[int] = mapped_column(ForeignKey("fichas.id"))
     nome: Mapped[str] = mapped_column(String(150))
-    dia_semana: Mapped[str] = mapped_column(String(20))
+    dia_semana: Mapped[str | None] = mapped_column(String(20), nullable=True)
     ordem: Mapped[int] = mapped_column(Integer)
     ativo: Mapped[bool] = mapped_column(Boolean, default=True)
     ficha: Mapped["Ficha"] = relationship(back_populates="treinos")

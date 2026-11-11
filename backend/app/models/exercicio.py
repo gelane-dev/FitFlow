@@ -1,4 +1,4 @@
-from sqlalchemy import String, Integer, Boolean
+from sqlalchemy import String, Integer, Boolean, ForeignKey, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
@@ -15,3 +15,5 @@ class Exercicio(Base):
     video: Mapped[str] = mapped_column(String(500), nullable=True)
     video_public_id: Mapped[str] = mapped_column(String(500), nullable=True)
     ativo: Mapped[bool] = mapped_column(Boolean, default=True)
+    instrucoes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    criado_por_professor_id: Mapped[int | None] = mapped_column(ForeignKey("professores.id"), nullable=True)

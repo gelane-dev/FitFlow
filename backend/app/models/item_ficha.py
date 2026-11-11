@@ -1,4 +1,4 @@
-from sqlalchemy import Integer, Float, ForeignKey, Boolean
+from sqlalchemy import Integer, Float, ForeignKey, Boolean, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
@@ -19,3 +19,4 @@ class ItemFicha(Base):
     treino_id: Mapped[int] = mapped_column(ForeignKey("treino.id"))
     treino: Mapped["Treino"] = relationship(back_populates="itens")
     ordem: Mapped[int] = mapped_column(Integer)
+    observacao: Mapped[str | None] = mapped_column(String(300), nullable=True)

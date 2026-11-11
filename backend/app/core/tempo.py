@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Annotated
 from zoneinfo import ZoneInfo
 
@@ -10,6 +10,11 @@ from .config import APP_TIMEZONE
 def agora() -> datetime:
     """Data/hora atual (aware) no fuso da aplicação (APP_TIMEZONE)."""
     return datetime.now(ZoneInfo(APP_TIMEZONE))
+
+
+def agora_naive() -> datetime:
+    """Horário local de APP_TIMEZONE sem tzinfo, como as colunas DateTime guardam (ADR-016)."""
+    return agora().replace(tzinfo=None)
 
 
 def para_naive_local(momento: datetime) -> datetime:
@@ -33,3 +38,8 @@ def para_iso_com_fuso(momento: datetime) -> str:
 
 # Tipo para campos datetime de resposta da API: serializa sempre com o offset de APP_TIMEZONE.
 DataHoraLocal = Annotated[datetime, PlainSerializer(para_iso_com_fuso, return_type=str, when_used="json")]
+
+
+def hoje() -> date:
+    """Data atual no fuso da aplicação (APP_TIMEZONE)."""
+    return agora().date()

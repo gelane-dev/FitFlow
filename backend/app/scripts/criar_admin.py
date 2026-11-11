@@ -6,6 +6,7 @@ import sys
 from sqlalchemy import select
 
 from ..core.seguranca import criar_hash
+from ..core.tempo import agora_naive
 from ..database import SessionLocal
 from ..models import User
 
@@ -14,7 +15,7 @@ def criar_admin(db, email: str, senha: str) -> User:
     if db.scalar(select(User).where(User.email == email)):
         raise ValueError("E-mail já cadastrado")
 
-    admin = User(email=email, senha=criar_hash(senha), tipo="admin")
+    admin = User(email=email, senha=criar_hash(senha), tipo="admin", criado_em=agora_naive())
     db.add(admin)
     db.commit()
     db.refresh(admin)

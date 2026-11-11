@@ -9,6 +9,14 @@ from .historico_execucao import HistoricoExecucao
 from .avaliacao_fisica import AvaliacaoFisica
 from .treino import Treino
 from .sessao_treino import SessaoTreino
+from .recepcionista import Recepcionista
+from .configuracao_academia import ConfiguracaoAcademia
+from .plano import Plano
+from .matricula import Matricula
+from .pagamento import Pagamento
+from .acesso import Acesso
+from .auditoria import Auditoria
+from .ficha_versao import FichaVersao
 
 __all__ = [
     "Base",
@@ -22,4 +30,12 @@ __all__ = [
     "AvaliacaoFisica",
     "Treino",
     "SessaoTreino",
+    "Recepcionista",
+    "ConfiguracaoAcademia",
+    "Plano",
+    "Matricula",
+    "Pagamento",
+    "Acesso",
+    "Auditoria",
+    "FichaVersao",
 ]

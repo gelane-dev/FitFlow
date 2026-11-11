@@ -19,3 +19,6 @@ class Ficha(Base):
     itens: Mapped[list["ItemFicha"]] = relationship(back_populates="ficha")
     ativo: Mapped[bool] = mapped_column(Boolean, default=True)
     treinos: Mapped[list["Treino"]] = relationship(back_populates="ficha")
+    objetivo: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="publicada", server_default="publicada")
+    atualizado_em: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

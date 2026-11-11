@@ -31,3 +31,11 @@ CORS_ORIGINS = os.getenv("CORS_ORIGINS", "").strip()
 
 # Fuso usado em "treino de hoje" e nas datas geradas pelo servidor
 APP_TIMEZONE = os.getenv("APP_TIMEZONE") or "America/Sao_Paulo"
+
+# Cookie de sessão da web (ADR-034)
+COOKIE_SECURE = os.getenv("COOKIE_SECURE", "false").strip().lower() in ("1", "true", "yes", "sim")
+COOKIE_SAMESITE = (os.getenv("COOKIE_SAMESITE") or "lax").strip().lower()
+if COOKIE_SAMESITE not in ("lax", "strict", "none"):
+    raise RuntimeError("COOKIE_SAMESITE deve ser lax, strict ou none")
+if COOKIE_SAMESITE == "none" and not COOKIE_SECURE:
+    raise RuntimeError("COOKIE_SAMESITE=none exige COOKIE_SECURE=true (os navegadores rejeitam o cookie sem Secure)")

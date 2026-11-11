@@ -74,10 +74,10 @@ def test_cadeia_de_migracoes_tem_uma_unica_head():
     config.set_main_option("script_location", str(BACKEND / "alembic"))
     script = ScriptDirectory.from_config(config)
 
-    assert script.get_heads() == ["a6b7c8d9e0f1"]
+    assert script.get_heads() == ["b7c8d9e0f1a2"]
     # as migrações das fases 3-5 se encadeiam após b1c2d3e4f5a6
-    cadeia = [r.revision for r in script.walk_revisions()][:6]
-    assert cadeia == ["a6b7c8d9e0f1", "f5a6b7c8d9e0", "e4f5a6b7c8d9", "d3e4f5a6b7c8", "c2d3e4f5a6b7", "b1c2d3e4f5a6"]
+    cadeia = [r.revision for r in script.walk_revisions()][:7]
+    assert cadeia == ["b7c8d9e0f1a2", "a6b7c8d9e0f1", "f5a6b7c8d9e0", "e4f5a6b7c8d9", "d3e4f5a6b7c8", "c2d3e4f5a6b7", "b1c2d3e4f5a6"]
 
 
 def test_migracao_do_indice_de_historico_encadeia_em_f5a6b7c8d9e0():

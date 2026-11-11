@@ -1,7 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import CORS_ORIGINS
-from app.routers import auth, usuarios, admin, exercicios, fichas, treino, historico, sessoes, evolucao, avaliacoes
+from app.routers import (
+    auth, usuarios, admin, exercicios, fichas, treino, historico, sessoes, evolucao, avaliacoes,
+    gestao_alunos, equipe, planos, matriculas, pagamentos, acessos, paineis, configuracao, auditoria, professor_web,
+)
 
 app = FastAPI(
     title="Academia API",
@@ -21,7 +24,7 @@ app.add_middleware(
     CORSMiddleware,
     **configurar_cors(CORS_ORIGINS),
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["Authorization", "Content-Type", "Accept", "X-FitFlow-Client"],
 )
 
 app.include_router(auth.router)
@@ -34,3 +37,13 @@ app.include_router(treino.router)
 app.include_router(sessoes.router)
 app.include_router(evolucao.router)
 app.include_router(avaliacoes.router)
+app.include_router(gestao_alunos.router)
+app.include_router(equipe.router)
+app.include_router(planos.router)
+app.include_router(matriculas.router)
+app.include_router(pagamentos.router)
+app.include_router(acessos.router)
+app.include_router(paineis.router)
+app.include_router(configuracao.router)
+app.include_router(auditoria.router)
+app.include_router(professor_web.router)

@@ -6,6 +6,9 @@ from ..database import get_db
 from ..schemas.professor import ProfessorCriar
 from ..models import User, Professor
 from ..core.seguranca import criar_hash, verificar_admin
+from ..core.tempo import agora_naive
+from ..services import auditoria
+from ..services.equipe import flush_unico
 
 router = APIRouter()
 
@@ -25,11 +28,12 @@ def criar_professor(dados: ProfessorCriar, admin=Depends(verificar_admin), db: S
     usuario = User(
         email=dados.email,
         senha=criar_hash(dados.senha),
-        tipo="professor"
+        tipo="professor",
+        criado_em=agora_naive()
     )
 
     db.add(usuario)
-    db.flush()
+    flush_unico(db)
 
     professor = Professor(
         user_id=usuario.id,
@@ -38,6 +42,10 @@ def criar_professor(dados: ProfessorCriar, admin=Depends(verificar_admin), db: S
     )
 
     db.add(professor)
+    db.flush()
+
+    auditoria.registrar(db, admin, "professor.criar", "professor", professor.id, f"Professor {professor.nome} criado")
+
     db.commit()
     db.refresh(professor)
 
