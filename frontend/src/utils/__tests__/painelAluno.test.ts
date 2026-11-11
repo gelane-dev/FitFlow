@@ -6,6 +6,7 @@ import {
   diasDaSemana,
   estimarDuracaoMin,
   formatarVolume,
+  formatarVolumeCompacto,
   nomeDiaSemana,
   proximoTreino,
   sequenciaDias,
@@ -120,6 +121,15 @@ describe('formatos', () => {
   });
 });
 
+describe('proximoTreino com treino sem dia fixo (GB-06)', () => {
+  it('ignora treinos de dia nulo (A/B/C) e devolve null se só houver esses', () => {
+    const semDia = [{ id: 1, dia_semana: null }, { id: 2, dia_semana: null }];
+
+    expect(proximoTreino(semDia, HOJE)).toBeNull();
+    expect(proximoTreino([...semDia, { id: 3, dia_semana: 'quarta' }], HOJE)?.treino.id).toBe(3);
+  });
+});
+
 describe('proximoTreino', () => {
   const treinos = [
     { id: 1, dia_semana: 'segunda' },
@@ -202,5 +212,19 @@ describe('sessaoAberta (P-D)', () => {
     expect(sessaoAberta(lista, 3)?.id).toBe(1);
     expect(sessaoAberta(lista, 5)).toBeUndefined();
     expect(sessaoAberta([])).toBeUndefined();
+  });
+});
+
+describe('formatarVolumeCompacto', () => {
+  it('abaixo de 10 mil mantém o número inteiro', () => {
+    expect(formatarVolumeCompacto(950)).toBe('950');
+    expect(formatarVolumeCompacto(9850.4)).toBe('9.850');
+  });
+
+  it('a partir de 10 mil abrevia em milhares com uma casa', () => {
+    expect(formatarVolumeCompacto(18600)).toBe('18,6 mil');
+    expect(formatarVolumeCompacto(12450.4)).toBe('12,5 mil');
+    expect(formatarVolumeCompacto(20000)).toBe('20 mil');
+    expect(formatarVolumeCompacto(1250000)).toBe('1.250 mil');
   });
 });

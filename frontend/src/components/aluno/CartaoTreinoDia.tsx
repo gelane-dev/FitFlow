@@ -5,8 +5,9 @@ import { Pressionavel } from '@/components/ui/Pressionavel';
 import { Selo } from '@/components/ui/Selo';
 import { cores, raios } from '@/theme';
 import { TreinoAluno } from '@/types/fichaAluno.types';
+import { rotuloDiaCompleto } from '@/utils/diasSemana';
 import { estimarDuracaoMin } from '@/utils/painelAluno';
-import { descreverTreino, inicialMaiuscula } from '@/utils/pluralizacao';
+import { descreverTreino } from '@/utils/pluralizacao';
 
 type CartaoTreinoDiaProps = {
   treino: TreinoAluno;
@@ -32,7 +33,7 @@ export function CartaoTreinoDia({ treino, hoje = false, emAndamento = false, onP
     >
       <View style={estilos.dia}>
         <Text style={[estilos.diaTexto, hoje && estilos.diaTextoHoje]}>
-          {treino.dia_semana.slice(0, 3).toUpperCase()}
+          {treino.dia_semana ? treino.dia_semana.slice(0, 3).toUpperCase() : '—'}
         </Text>
       </View>
 
@@ -53,7 +54,7 @@ export function CartaoTreinoDia({ treino, hoje = false, emAndamento = false, onP
           </Text>
         ) : null}
         <Text style={estilos.detalhe} numberOfLines={1}>
-          {inicialMaiuscula(treino.dia_semana)} · {descreverTreino(treino.itens.length, duracao)}
+          {rotuloDiaCompleto(treino.dia_semana)} · {descreverTreino(treino.itens.length, duracao)}
         </Text>
       </View>
 

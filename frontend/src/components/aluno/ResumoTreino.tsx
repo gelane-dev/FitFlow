@@ -15,6 +15,8 @@ type ResumoTreinoProps = {
   duracao: string;
   series: string;
   volume: string;
+  /** Volume por extenso para leitores de tela, quando `volume` é abreviado. */
+  volumeCompleto?: string;
   incompleto: boolean;
   esforco: number | undefined;
   onEsforco: (nivel: number) => void;
@@ -31,6 +33,7 @@ export function ResumoTreino({
   duracao,
   series,
   volume,
+  volumeCompleto,
   incompleto,
   esforco,
   onEsforco,
@@ -53,7 +56,7 @@ export function ResumoTreino({
       <Cartao style={estilos.estatisticas}>
         <BlocoEstatistica valor={duracao} rotulo="Duração" destaque />
         <BlocoEstatistica valor={series} rotulo="Séries" />
-        <BlocoEstatistica valor={volume} unidade="kg" rotulo="Volume" />
+        <BlocoEstatistica valor={volume} valorCompleto={volumeCompleto} unidade="kg" rotulo="Volume" />
       </Cartao>
 
       <Text style={estilos.secao}>Esforço percebido (1 a 10)</Text>

@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { Chip } from '@/components/ui/Chip';
+import { Etiqueta } from '@/components/ui/Etiqueta';
 import { Pressionavel } from '@/components/ui/Pressionavel';
 import { cores, raios } from '@/theme';
 import { Treino } from '@/types/ficha.types';
@@ -34,7 +34,7 @@ export function CardTreino({ treino, onPress, onRemover, onEditar }: CardTreinoP
         accessibilityLabel={`Abrir treino ${treino.nome}`}
       >
         <View style={estilos.chip}>
-          <Chip rotulo={rotuloDia(treino.dia_semana)} selecionado />
+          <Etiqueta rotulo={rotuloDia(treino.dia_semana)} destaque />
         </View>
 
         <Text style={estilos.nome} numberOfLines={2}>

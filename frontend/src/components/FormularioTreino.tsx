@@ -9,12 +9,13 @@ import { Tela } from '@/components/ui/Tela';
 import { TituloSecao } from '@/components/ui/TituloSecao';
 import { useErrosAposTentativa } from '@/hooks/useErrosAposTentativa';
 import { DIAS_SEMANA, DiaSemana } from '@/types/ficha.types';
-import { rotuloDiaCurto } from '@/utils/diasSemana';
+import { ROTULO_SEM_DIA_FIXO, rotuloDiaCurto } from '@/utils/diasSemana';
 import { CampoTreino, validarTreino } from '@/utils/validacaoFormularios';
 
 interface DadosTreino {
   nome: string;
-  dia_semana: DiaSemana;
+  /** `null` = sem dia fixo (divisão A/B/C). */
+  dia_semana: DiaSemana | null;
   ordem: number;
 }
 
@@ -23,7 +24,8 @@ interface FormularioTreinoProps {
   rotuloBotao: string;
   salvando: boolean;
   nomeInicial?: string;
-  diaInicial?: DiaSemana;
+  /** Padrão em treino novo: segunda. `null` = sem dia fixo (edição de treino A/B/C). */
+  diaInicial?: DiaSemana | null;
   ordemInicial?: string;
   onSalvar: (dados: DadosTreino) => void;
 }
@@ -39,7 +41,7 @@ export function FormularioTreino({
   onSalvar,
 }: FormularioTreinoProps) {
   const [nome, setNome] = useState(nomeInicial);
-  const [diaSemana, setDiaSemana] = useState<DiaSemana>(diaInicial);
+  const [diaSemana, setDiaSemana] = useState<DiaSemana | null>(diaInicial);
   const [ordem, setOrdem] = useState(ordemInicial);
   const { erros, tentar } = useErrosAposTentativa<CampoTreino>(() =>
     validarTreino({ nome, ordem })
@@ -74,6 +76,15 @@ export function FormularioTreino({
       />
 
       <TituloSecao titulo="Dia da semana" />
+      <View style={estilos.semDia}>
+        <Chip
+          rotulo={ROTULO_SEM_DIA_FIXO}
+          papel="radio"
+          selecionado={diaSemana === null}
+          onPress={() => setDiaSemana(null)}
+          testID="treino-dia-sem-dia-fixo"
+        />
+      </View>
       <View style={estilos.dias}>
         {DIAS_SEMANA.map((dia) => (
           <Chip
@@ -100,5 +111,6 @@ export function FormularioTreino({
 }
 
 const estilos = StyleSheet.create({
+  semDia: { flexDirection: 'row', marginBottom: 10 },
   dias: { flexDirection: 'row', gap: 6, marginBottom: 4 },
 });

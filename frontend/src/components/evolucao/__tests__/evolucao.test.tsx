@@ -120,6 +120,21 @@ describe('GraficoLinha', () => {
     expect(screen.getByTestId('g-data')).toHaveTextContent('01/10/2026');
   });
 
+  it('formatarRotulo troca o rótulo do eixo X; sem a prop o padrão dd/mm continua', async () => {
+    const pontos = [
+      { data: '2026-10-01', valor: 40 },
+      { data: '2026-11-01', valor: 45 },
+    ];
+    await renderizar(
+      <GraficoLinha pontos={pontos} rotulo="Alunos" formatarRotulo={(d) => `mes ${d.slice(5, 7)}`} testID="g" />
+    );
+
+    const oculto = { includeHiddenElements: true }; // o eixo X não é lido por leitores de tela
+    expect(screen.getByText('mes 10', oculto)).toBeTruthy();
+    expect(screen.getByText('mes 11', oculto)).toBeTruthy();
+    expect(screen.queryByText('01/11', oculto)).toBeNull();
+  });
+
   it('cada alvo tem rótulo de acessibilidade e há um resumo textual', async () => {
     await renderizar(
       <GraficoLinha

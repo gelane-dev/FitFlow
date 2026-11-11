@@ -4,11 +4,16 @@ import { StyleSheet, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 
 import { CardFicha } from '@/components/CardFicha';
+import {
+  SecaoFrequenciaProfessor,
+  SecaoMedidasProfessor,
+} from '@/components/professor/SecoesAlunoProfessor';
+import { Botao } from '@/components/ui/Botao';
 import { Avatar } from '@/components/ui/Avatar';
 import { BlocoEstatistica } from '@/components/ui/BlocoEstatistica';
 import { CabecalhoDetalhe } from '@/components/ui/CabecalhoDetalhe';
 import { Cartao } from '@/components/ui/Cartao';
-import { Chip } from '@/components/ui/Chip';
+import { Etiqueta } from '@/components/ui/Etiqueta';
 import { EstadoErro } from '@/components/ui/EstadoErro';
 import { EstadoErroSecao } from '@/components/ui/EstadoErroSecao';
 import { Pressionavel } from '@/components/ui/Pressionavel';
@@ -23,6 +28,7 @@ import { formatarData } from '@/utils/datas';
 import { formatarHora } from '@/utils/evolucao';
 import { formatarAltura, formatarNumeroBr } from '@/utils/numeros';
 import { paramTexto } from '@/utils/params';
+import { medidasPreenchidas } from '@/utils/professorWeb';
 import { formatarImc } from '@/utils/vigencia';
 
 const LIMITE_SESSOES = 5;
@@ -104,6 +110,8 @@ export default function DetalheAluno() {
         </View>
       </Cartao>
 
+      <SecaoFrequenciaProfessor alunoId={alunoId} />
+
       <TituloSecao
         titulo="Fichas"
         acao={{
@@ -115,6 +123,21 @@ export default function DetalheAluno() {
             }),
         }}
       />
+      <Botao
+        variante="secundario"
+        tamanho="medio"
+        icone="construct-outline"
+        onPress={() =>
+          router.push({
+            pathname: '/fichas/montar' as any,
+            params: { alunoId: alunoId.toString() },
+          })
+        }
+        testID="aluno-montar-ficha"
+      >
+        Montar ficha no editor
+      </Botao>
+      <View style={estilos.espaco} />
       {fichas.dados.length === 0 ? (
         <MensagemSecao secao={fichas} vazio="Nenhuma ficha para este aluno." />
       ) : (
@@ -177,7 +200,7 @@ export default function DetalheAluno() {
             <View style={estilos.textosEvolucao}>
               <Text style={estilos.tituloCartao}>{exercicio.nome}</Text>
               <View style={estilos.chip}>
-                <Chip rotulo={exercicio.grupo_muscular} />
+                <Etiqueta rotulo={exercicio.grupo_muscular} />
               </View>
               <Text style={estilos.detalhe}>
                 {`Última carga ${exercicio.ultima_carga} kg · máxima ${exercicio.carga_maxima} kg · ${exercicio.total_registros} registros`}
@@ -199,6 +222,7 @@ export default function DetalheAluno() {
             }),
         }}
       />
+      <SecaoMedidasProfessor avaliacoes={avaliacoes.dados} />
       {avaliacoes.dados.length === 0 ? (
         <MensagemSecao secao={avaliacoes} vazio="Nenhuma avaliação cadastrada." />
       ) : (
@@ -220,6 +244,13 @@ export default function DetalheAluno() {
             <Text style={estilos.detalhe}>
               {`${formatarNumeroBr(avaliacao.peso)} kg · ${formatarAltura(avaliacao.altura)} · IMC ${formatarImc(avaliacao.imc)}`}
             </Text>
+            {medidasPreenchidas(avaliacao).length > 0 ? (
+              <Text style={estilos.detalhe} testID={`avaliacao-${avaliacao.id}-medidas`}>
+                {medidasPreenchidas(avaliacao)
+                  .map((m) => `${m.rotulo} ${formatarNumeroBr(m.valor)} cm`)
+                  .join(' · ')}
+              </Text>
+            ) : null}
           </Cartao>
         ))
       )}

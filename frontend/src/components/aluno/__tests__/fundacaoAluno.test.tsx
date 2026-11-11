@@ -86,6 +86,18 @@ describe('CartaoTreinoDia (I-03)', () => {
     expect(JSON.stringify(detalhe.props.style)).not.toContain('textTransform');
   });
 
+  it('treino sem dia fixo mostra "Sem dia fixo" em vez de quebrar (GB-06)', async () => {
+    await renderizar(<CartaoTreinoDia treino={treino({ dia_semana: null })} onPress={() => {}} />);
+
+    expect(screen.getByText(/^Sem dia fixo · 2/)).toBeTruthy();
+  });
+
+  it('PreviaTreino também trata o dia nulo (GB-06)', async () => {
+    await renderizar(<PreviaTreino treino={treino({ dia_semana: null })} />);
+
+    expect(screen.getByText('Sem dia fixo')).toBeTruthy();
+  });
+
   it('usa o singular com 1 exercício', async () => {
     const um = treino({ itens: [treino().itens[0]] });
 

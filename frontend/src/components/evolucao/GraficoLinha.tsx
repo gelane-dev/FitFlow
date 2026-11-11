@@ -35,6 +35,8 @@ export interface GraficoLinhaProps {
    * do cartão, então a leitura só aparece quando o usuário toca em outro ponto.
    */
   embutido?: boolean;
+  /** Formata o rótulo do eixo X a partir da data do ponto (padrão "dd/mm"; séries mensais: "nov/26"). */
+  formatarRotulo?: (data: string) => string;
   testID?: string;
 }
 
@@ -63,6 +65,7 @@ export function GraficoLinha({
   unidade = '',
   mensagemVazio = 'Sem registros para exibir.',
   embutido = false,
+  formatarRotulo,
   testID = 'grafico-linha',
 }: GraficoLinhaProps) {
   const [larguraDisponivel, setLarguraDisponivel] = useState(0);
@@ -114,7 +117,7 @@ export function GraficoLinha({
   };
   const posicionados = posicionarPontos(pontos, escala, area);
   const linha = caminhoDaLinha(posicionados);
-  const rotulosX = rotulosDoEixoX(pontos);
+  const rotulosX = rotulosDoEixoX(pontos, formatarRotulo);
   const valores = pontos.map((p) => p.valor);
   const resumo =
     `${rotulo}: ${pontos.length} ${pontos.length === 1 ? 'registro' : 'registros'}, ` +

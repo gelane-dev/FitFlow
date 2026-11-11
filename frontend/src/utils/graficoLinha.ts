@@ -135,10 +135,14 @@ export function larguraDoGrafico(
 /**
  * Rótulos do eixo X (um por ponto, "dd/mm"). Dois pontos seguidos no mesmo dia não repetem o
  * rótulo: o segundo vem `null` (o ponto continua no gráfico e o toque mostra a data).
+ * `formatar` troca o formato padrão (ex.: séries mensais mostram "nov/26").
  */
-export function rotulosDoEixoX(pontos: PontoGrafico[]): (string | null)[] {
+export function rotulosDoEixoX(
+  pontos: PontoGrafico[],
+  formatar: (data: string) => string = formatarDataCurta
+): (string | null)[] {
   return pontos.map((ponto, i) =>
-    i > 0 && pontos[i - 1].data.slice(0, 10) === ponto.data.slice(0, 10) ? null : formatarDataCurta(ponto.data)
+    i > 0 && pontos[i - 1].data.slice(0, 10) === ponto.data.slice(0, 10) ? null : formatar(ponto.data)
   );
 }
 

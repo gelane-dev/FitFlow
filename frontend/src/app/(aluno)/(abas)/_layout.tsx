@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 
-import { BarraAbas, DefinicaoAba } from '@/components/ui/BarraAbas';
+import { BarraAbas, DefinicaoAba, useOpcoesBarraAbas } from '@/components/ui/BarraAbas';
 import { CenaAba } from '@/components/ui/CenaAba';
 import { cores } from '@/theme';
 
@@ -17,11 +17,13 @@ const ABAS: Record<string, DefinicaoAba> = {
 };
 
 export default function AbasAluno() {
+  const posicao = useOpcoesBarraAbas();
+
   return (
     <Tabs
       tabBar={(props) => <BarraAbas {...props} abas={ABAS} />}
       screenLayout={({ children }) => <CenaAba>{children}</CenaAba>}
-      screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: cores.fundo } }}
+      screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: cores.fundo }, ...posicao }}
     >
       <Tabs.Screen name="aluno/index" />
       <Tabs.Screen name="aluno/treinos" />

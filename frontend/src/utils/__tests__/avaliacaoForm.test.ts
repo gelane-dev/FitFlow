@@ -7,6 +7,7 @@ import {
   errosAvaliacao,
   montarAvaliacao,
 } from '@/utils/avaliacaoForm';
+import { medidasVazias } from '@/utils/professorWeb';
 
 const validos: CamposAvaliacao = {
   data: '30/10/2026',
@@ -15,6 +16,7 @@ const validos: CamposAvaliacao = {
   percentualGordura: '',
   massaMuscular: '',
   observacao: '',
+  medidas: medidasVazias(),
 };
 
 const ERRO_ALTURA = 'Informe a altura em metros (entre 0,5 e 2,5).';
@@ -36,6 +38,7 @@ describe('hojeIso / camposVazios', () => {
       percentualGordura: '',
       massaMuscular: '',
       observacao: '',
+      medidas: medidasVazias(),
     });
   });
 });
@@ -53,6 +56,7 @@ describe('camposDaAvaliacao', () => {
       massa_muscular: 35,
       observacao: null,
       imc: 24.8,
+      cintura: 82.5,
     };
 
     expect(camposDaAvaliacao(resposta)).toEqual({
@@ -62,6 +66,7 @@ describe('camposDaAvaliacao', () => {
       percentualGordura: '',
       massaMuscular: '35',
       observacao: '',
+      medidas: { ...medidasVazias(), cintura: '82.5' },
     });
   });
 });
@@ -76,6 +81,15 @@ describe('montarAvaliacao', () => {
         percentual_gordura: null,
         massa_muscular: null,
         observacao: null,
+        cintura: null,
+        quadril: null,
+        abdomen: null,
+        peito: null,
+        braco_direito: null,
+        braco_esquerdo: null,
+        coxa_direita: null,
+        coxa_esquerda: null,
+        panturrilha: null,
       },
     });
   });
@@ -134,6 +148,7 @@ describe('errosAvaliacao', () => {
     percentualGordura: '',
     massaMuscular: '',
     observacao: '',
+    medidas: medidasVazias(),
   };
 
   it('sem erros para campos válidos', () => {
@@ -157,5 +172,40 @@ describe('errosAvaliacao', () => {
       'percentualGordura',
       'massaMuscular',
     ]);
+  });
+});
+
+describe('circunferências na avaliação', () => {
+  it('envia as medidas preenchidas (vírgula decimal) e null nas demais', () => {
+    const resultado = montarAvaliacao({
+      ...validos,
+      medidas: { ...medidasVazias(), cintura: '82,5', coxa_direita: '58' },
+    });
+
+    expect(resultado.dados).toMatchObject({
+      cintura: 82.5,
+      coxa_direita: 58,
+      quadril: null,
+      panturrilha: null,
+    });
+  });
+
+  it('rejeita medida fora de 0 a 300 cm, apontando a chave da medida', () => {
+    const erros = errosAvaliacao({
+      ...validos,
+      medidas: { ...medidasVazias(), cintura: '0', peito: '301', abdomen: 'x' },
+    });
+
+    expect(Object.keys(erros)).toEqual(['cintura', 'abdomen', 'peito']);
+    expect(
+      montarAvaliacao({ ...validos, medidas: { ...medidasVazias(), peito: '301' } }).erro
+    ).toMatch(/Peito/);
+  });
+
+  it('aceita o limite de 300 cm e deixa vazio opcional', () => {
+    expect(
+      montarAvaliacao({ ...validos, medidas: { ...medidasVazias(), peito: '300' } }).dados?.peito
+    ).toBe(300);
+    expect(errosAvaliacao(validos)).toEqual({});
   });
 });

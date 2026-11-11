@@ -5,6 +5,7 @@ import {
   ExercicioAtualizar,
   ExercicioCriar,
   ExerciciosListaResposta,
+  OrigemExercicio,
 } from '@/types/exercicio.types';
 
 export async function buscarExercicios(
@@ -12,6 +13,7 @@ export async function buscarExercicios(
   opcoes?: {
     busca?: string;
     limite?: number;
+    origem?: OrigemExercicio;
   }
 ): Promise<ExerciciosListaResposta> {
   const resposta = await api.get<ExerciciosListaResposta>(
@@ -21,6 +23,7 @@ export async function buscarExercicios(
         pagina: paginaSolicitada,
         busca: opcoes?.busca,
         limite: opcoes?.limite,
+        origem: opcoes?.origem,
       },
     }
   );

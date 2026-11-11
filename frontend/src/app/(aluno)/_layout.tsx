@@ -5,7 +5,7 @@ import { cores } from '@/theme';
 export const unstable_settings = { anchor: '(abas)' };
 
 /**
- * Área do aluno (e do admin): abas no grupo (abas); detalhes e fluxos
+ * Área do aluno: abas no grupo (abas); detalhes e fluxos
  * (treino, ficha, sessão, avaliações, lembretes) abrem por cima, sem a barra.
  */
 export default function LayoutAluno() {

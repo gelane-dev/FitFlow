@@ -114,6 +114,13 @@ describe('CardTreino', () => {
     expect(rotuloDia('sábado')).toBe('Sábado');
   });
 
+  it('treino sem dia fixo mostra "Sem dia fixo" no chip (GB-06)', async () => {
+    await render(<CardTreino treino={{ ...treino, dia_semana: null }} onPress={jest.fn()} />);
+
+    expect(screen.getByText('Sem dia fixo')).toBeTruthy();
+    expect(rotuloDia(null)).toBe('Sem dia fixo');
+  });
+
   it('usa o singular com um exercício e zero sem itens', async () => {
     expect(rotuloExercicios(1)).toBe('1 exercício');
     expect(rotuloExercicios(0)).toBe('0 exercícios');
@@ -294,5 +301,54 @@ describe('CamposVigencia', () => {
 
     await fireEvent.changeText(screen.getByPlaceholderText('DD/MM/AAAA (padrão: hoje)'), '31102026');
     expect(onChangeInicio).toHaveBeenCalledWith('31/10/2026');
+  });
+
+  const metricas = {
+    frame: { x: 0, y: 0, width: 360, height: 800 },
+    insets: { top: 0, left: 0, right: 0, bottom: 0 },
+  };
+
+  it('treino novo começa na segunda e "Sem dia fixo" envia dia_semana nulo', async () => {
+    const onSalvar = jest.fn();
+    await render(
+      <SafeAreaProvider initialMetrics={metricas}>
+        <FormularioTreino titulo="Novo treino" rotuloBotao="CRIAR TREINO" salvando={false} nomeInicial="Treino A" onSalvar={onSalvar} />
+      </SafeAreaProvider>
+    );
+
+    await fireEvent.press(screen.getByText('CRIAR TREINO'));
+    expect(onSalvar).toHaveBeenLastCalledWith({ nome: 'Treino A', dia_semana: 'segunda', ordem: 1 });
+
+    await fireEvent.press(screen.getByText('Sem dia fixo'));
+    expect(screen.getByTestId('treino-dia-sem-dia-fixo').props.accessibilityState.checked).toBe(true);
+    await fireEvent.press(screen.getByText('CRIAR TREINO'));
+    expect(onSalvar).toHaveBeenLastCalledWith({ nome: 'Treino A', dia_semana: null, ordem: 1 });
+  });
+
+  it('editar treino sem dia fixo preserva o null ao salvar sem mexer no dia (GB-11)', async () => {
+    const onSalvar = jest.fn();
+    await render(
+      <SafeAreaProvider initialMetrics={metricas}>
+        <FormularioTreino
+          titulo="Editar treino"
+          rotuloBotao="SALVAR"
+          salvando={false}
+          nomeInicial="Treino B"
+          diaInicial={null}
+          ordemInicial="2"
+          onSalvar={onSalvar}
+        />
+      </SafeAreaProvider>
+    );
+
+    expect(screen.getByTestId('treino-dia-sem-dia-fixo').props.accessibilityState.checked).toBe(true);
+
+    await fireEvent.press(screen.getByText('SALVAR'));
+    expect(onSalvar).toHaveBeenCalledWith({ nome: 'Treino B', dia_semana: null, ordem: 2 });
+
+    // escolher um dia e voltar para "Sem dia fixo" também funciona
+    await fireEvent.press(screen.getByText('Qua'));
+    await fireEvent.press(screen.getByText('SALVAR'));
+    expect(onSalvar).toHaveBeenLastCalledWith({ nome: 'Treino B', dia_semana: 'quarta', ordem: 2 });
   });
 });

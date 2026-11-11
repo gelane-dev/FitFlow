@@ -2,18 +2,21 @@ import { StyleSheet, View } from 'react-native';
 
 import { CampoTexto } from '@/components/ui/CampoTexto';
 import { TituloSecao } from '@/components/ui/TituloSecao';
-import { CamposAvaliacao } from '@/utils/avaliacaoForm';
+import { CamposAvaliacao, ChaveErroAvaliacao } from '@/utils/avaliacaoForm';
+import { ChaveMedida, MEDIDAS_CORPORAIS } from '@/utils/professorWeb';
 import { mascararData } from '@/utils/datas';
 import { Erros } from '@/utils/validacaoFormularios';
 
 interface FormularioAvaliacaoProps {
   campos: CamposAvaliacao;
-  onChange: (campo: keyof CamposAvaliacao, valor: string) => void;
-  erros?: Erros<keyof CamposAvaliacao>;
+  onChange: (campo: Exclude<keyof CamposAvaliacao, 'medidas'>, valor: string) => void;
+  /** Altera uma circunferência (cm). */
+  onChangeMedida: (medida: ChaveMedida, valor: string) => void;
+  erros?: Erros<ChaveErroAvaliacao>;
 }
 
 /** Campos da avaliação física em seções; o botão de salvar fica no rodapé da tela. */
-export function FormularioAvaliacao({ campos, onChange, erros = {} }: FormularioAvaliacaoProps) {
+export function FormularioAvaliacao({ campos, onChange, onChangeMedida, erros = {} }: FormularioAvaliacaoProps) {
   return (
     <>
       <TituloSecao titulo="Data" />
@@ -75,6 +78,24 @@ export function FormularioAvaliacao({ campos, onChange, erros = {} }: Formulario
         </View>
       </View>
 
+      <TituloSecao titulo="Circunferências em cm (opcional)" />
+      <View style={estilos.grade}>
+        {MEDIDAS_CORPORAIS.map(({ chave, rotulo }) => (
+          <View key={chave} style={estilos.medida}>
+            <CampoTexto
+              rotulo={`${rotulo} (cm)`}
+              placeholder="Ex.: 82"
+              value={campos.medidas[chave]}
+              onChangeText={(v) => onChangeMedida(chave, v)}
+              erro={erros[chave]}
+              keyboardType="decimal-pad"
+              accessibilityLabel={`${rotulo} em centímetros`}
+              testID={`avaliacao-medida-${chave}`}
+            />
+          </View>
+        ))}
+      </View>
+
       <TituloSecao titulo="Observação (opcional)" />
       <CampoTexto
         placeholder="Anotações"
@@ -88,6 +109,7 @@ export function FormularioAvaliacao({ campos, onChange, erros = {} }: Formulario
 }
 
 const estilos = StyleSheet.create({
-  grade: { flexDirection: 'row', gap: 12 },
+  grade: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 12 },
+  medida: { flexBasis: '45%', flexGrow: 1, minWidth: 140 },
   coluna: { flex: 1 },
 });

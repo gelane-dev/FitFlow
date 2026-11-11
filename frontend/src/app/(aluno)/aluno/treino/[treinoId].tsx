@@ -27,7 +27,7 @@ import { cores, fonteDisplay, raios } from '@/theme';
 import { mostrarAlerta } from '@/utils/alerta';
 import { formatarNumero } from '@/utils/evolucao';
 import { formatarDuracao } from '@/utils/historicoAluno';
-import { formatarVolume } from '@/utils/painelAluno';
+import { formatarVolume, formatarVolumeCompacto } from '@/utils/painelAluno';
 import { ajustarCampo, minutosDesde, volumeDasSeries } from '@/utils/sessao';
 
 const PASSO_REPETICOES = 1;
@@ -228,7 +228,8 @@ export default function ExecucaoTreino() {
           treinoNome={treinoNome}
           duracao={formatarDuracao(duracaoMin)}
           series={`${seriesFeitas}/${totalSeries}`}
-          volume={formatarVolume(volumeDasSeries(series))}
+          volume={formatarVolumeCompacto(volumeDasSeries(series))}
+          volumeCompleto={formatarVolume(volumeDasSeries(series))}
           incompleto={!treinoCompleto}
           esforco={esforco}
           onEsforco={setEsforco}

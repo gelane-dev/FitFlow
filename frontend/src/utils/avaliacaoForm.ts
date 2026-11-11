@@ -1,5 +1,13 @@
 import { AvaliacaoCriar, AvaliacaoResposta } from '@/types/avaliacao.types';
 import { dataBrParaIso, formatarData } from '@/utils/datas';
+import {
+  CamposMedidas,
+  ChaveMedida,
+  errosMedidas,
+  medidasDaAvaliacao,
+  medidasParaApi,
+  medidasVazias,
+} from '@/utils/professorWeb';
 import { lerNumero } from '@/utils/vigencia';
 
 export interface CamposAvaliacao {
@@ -10,7 +18,12 @@ export interface CamposAvaliacao {
   percentualGordura: string;
   massaMuscular: string;
   observacao: string;
+  /** Circunferências opcionais em cm (vazio = não medida). */
+  medidas: CamposMedidas;
 }
+
+/** Chaves de erro: campos do formulário e, por medida, a chave da circunferência. */
+export type ChaveErroAvaliacao = Exclude<keyof CamposAvaliacao, 'medidas'> | ChaveMedida;
 
 export type ResultadoAvaliacao =
   | { dados: AvaliacaoCriar; erro?: undefined }
@@ -32,6 +45,7 @@ export function camposVazios(): CamposAvaliacao {
     percentualGordura: '',
     massaMuscular: '',
     observacao: '',
+    medidas: medidasVazias(),
   };
 }
 
@@ -44,14 +58,15 @@ export function camposDaAvaliacao(a: AvaliacaoResposta): CamposAvaliacao {
       a.percentual_gordura == null ? '' : String(a.percentual_gordura),
     massaMuscular: a.massa_muscular == null ? '' : String(a.massa_muscular),
     observacao: a.observacao ?? '',
+    medidas: medidasDaAvaliacao(a),
   };
 }
 
 /** Erros de validação por campo (vazio = tudo válido). Ordem: data, peso, altura, gordura, massa. */
 export function errosAvaliacao(
   campos: CamposAvaliacao
-): Partial<Record<keyof CamposAvaliacao, string>> {
-  const erros: Partial<Record<keyof CamposAvaliacao, string>> = {};
+): Partial<Record<ChaveErroAvaliacao, string>> {
+  const erros: Partial<Record<ChaveErroAvaliacao, string>> = {};
 
   if (dataBrParaIso(campos.data) === null) {
     erros.data = 'Informe a data no formato DD/MM/AAAA.';
@@ -81,6 +96,8 @@ export function errosAvaliacao(
   ) {
     erros.massaMuscular = 'A massa muscular deve ser maior que zero.';
   }
+
+  Object.assign(erros, errosMedidas(campos.medidas));
 
   return erros;
 }
@@ -120,6 +137,7 @@ export function montarAvaliacao(
       percentual_gordura: percentualGordura,
       massa_muscular: massaMuscular,
       observacao: campos.observacao.trim() || null,
+      ...medidasParaApi(campos.medidas),
     },
   };
 }

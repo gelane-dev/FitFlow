@@ -18,6 +18,8 @@ import { useImagemExercicio } from '@/hooks/useImagemExercicio';
 import { useVideoExercicio } from '@/hooks/useVideoExercicio';
 import { ExercicioAtualizar } from '@/types/exercicio.types';
 import { mostrarAlerta } from '@/utils/alerta';
+import { useProfessorId } from '@/hooks/useProfessorId';
+import { podeEditarExercicio } from '@/utils/professorWeb';
 
 /** Edição de exercício (/exercicios/[id]/editar). */
 export default function EditarExercicio() {
@@ -35,6 +37,8 @@ export default function EditarExercicio() {
 
   const { enviarImagem, carregando: enviandoImagem, erro: erroImagem } = useImagemExercicio();
   const { enviarVideo, carregando: enviandoVideo, erro: erroVideo } = useVideoExercicio();
+
+  const professorId = useProfessorId();
 
   useAlertaErro(erroExercicio);
   useAlertaErro(erroAtualizacao);
@@ -56,7 +60,10 @@ export default function EditarExercicio() {
 
   // O skeleton só aparece na primeira carga. Em recarregamentos (ex.: após
   // trocar a imagem) o formulário continua montado e preserva o que foi digitado.
-  if (carregandoExercicio && !exercicio) {
+  const aguardandoProfessor =
+    exercicio?.criado_por_professor_id != null && professorId === null;
+
+  if ((carregandoExercicio && !exercicio) || aguardandoProfessor) {
     return (
       <Tela>
         <CabecalhoDetalhe titulo="Editar exercício" />
@@ -74,6 +81,15 @@ export default function EditarExercicio() {
       <Tela>
         <CabecalhoDetalhe titulo="Editar exercício" />
         <EstadoErro mensagem={erroExercicio || 'Exercício não encontrado.'} />
+      </Tela>
+    );
+  }
+
+  if (!podeEditarExercicio(exercicio, professorId)) {
+    return (
+      <Tela>
+        <CabecalhoDetalhe titulo="Editar exercício" />
+        <EstadoErro mensagem="Exercício de outro professor: você não pode editá-lo." />
       </Tela>
     );
   }

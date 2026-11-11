@@ -10,6 +10,7 @@ import {
   posicionarPontos,
   rotulosDoEixoX,
 } from '@/utils/graficoLinha';
+import { rotuloMesDaData } from '@/utils/painelAdmin';
 
 const area: AreaGrafico = { largura: 300, altura: 200, topo: 10, base: 10, esquerda: 20, direita: 20 };
 
@@ -152,6 +153,12 @@ describe('rotulosDoEixoX', () => {
     ];
 
     expect(rotulosDoEixoX(pontos)).toEqual(['31/10', null, null, '02/11']);
+  });
+
+  it('aceita um formatador (séries mensais: "nov/26")', () => {
+    const pontos = [{ data: '2026-10-01', valor: 1 }, { data: '2026-11-01', valor: 2 }];
+
+    expect(rotulosDoEixoX(pontos, rotuloMesDaData)).toEqual(['out/26', 'nov/26']);
   });
 
   it('lista vazia', () => {

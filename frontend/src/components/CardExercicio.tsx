@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { MiniaturaExercicio } from '@/components/exercicios/MiniaturaExercicio';
-import { Chip } from '@/components/ui/Chip';
+import { Etiqueta } from '@/components/ui/Etiqueta';
 import { Pressionavel } from '@/components/ui/Pressionavel';
 import { cores, raios } from '@/theme';
 import { Exercicio } from '@/types/exercicio.types';
@@ -10,11 +10,15 @@ import { Exercicio } from '@/types/exercicio.types';
 interface CardExercicioProps {
   exercicio: Exercicio;
   onPress: () => void;
-  onEditar: () => void;
+  onEditar?: () => void;
+  /** Exercício de outro professor: sem o botão de editar. */
+  podeEditar?: boolean;
+  /** Origem exibida (ex.: "Biblioteca", "Meu exercício"). */
+  origem?: string;
 }
 
 /** Card de exercício da biblioteca: miniatura, nome, grupo muscular e descrição. */
-export function CardExercicio({ exercicio, onPress, onEditar }: CardExercicioProps) {
+export function CardExercicio({ exercicio, onPress, onEditar, podeEditar = true, origem }: CardExercicioProps) {
   return (
     <View style={estilos.card}>
       <Pressionavel
@@ -32,7 +36,8 @@ export function CardExercicio({ exercicio, onPress, onEditar }: CardExercicioPro
           </Text>
 
           <View style={estilos.chip}>
-            <Chip rotulo={exercicio.grupo_muscular} icone="body-outline" />
+            <Etiqueta rotulo={exercicio.grupo_muscular} icone="body-outline" />
+            {origem ? <Text style={estilos.origem}>{origem}</Text> : null}
           </View>
 
           <Text style={estilos.descricao} numberOfLines={2}>
@@ -41,6 +46,7 @@ export function CardExercicio({ exercicio, onPress, onEditar }: CardExercicioPro
         </View>
       </Pressionavel>
 
+      {podeEditar && onEditar ? (
       <Pressionavel
         onPress={onEditar}
         haptico="leve"
@@ -51,6 +57,7 @@ export function CardExercicio({ exercicio, onPress, onEditar }: CardExercicioPro
       >
         <Ionicons name="create-outline" size={20} color={cores.textoSecundario} />
       </Pressionavel>
+      ) : null}
     </View>
   );
 }
@@ -68,7 +75,8 @@ const estilos = StyleSheet.create({
   principal: { flex: 1, flexDirection: 'row', gap: 14, padding: 12 },
   textos: { flex: 1, gap: 6 },
   nome: { color: cores.texto, fontSize: 16, fontWeight: '700' },
-  chip: { flexDirection: 'row' },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
+  origem: { color: cores.textoTerciario, fontSize: 12 },
   descricao: { color: cores.textoSecundario, fontSize: 13, lineHeight: 18 },
   editar: {
     width: 44,

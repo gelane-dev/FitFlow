@@ -14,6 +14,9 @@ import { EstadoVazio } from '@/components/ui/EstadoVazio';
 import { SkeletonLista } from '@/components/ui/Skeleton';
 import { TelaLista } from '@/components/ui/TelaLista';
 import { useExercicios } from '@/hooks/useExercicios';
+import { useProfessorId } from '@/hooks/useProfessorId';
+import { OrigemExercicio } from '@/types/exercicio.types';
+import { podeEditarExercicio, rotuloOrigemExercicio } from '@/utils/professorWeb';
 import { usePuxarParaAtualizar } from '@/hooks/usePuxarParaAtualizar';
 import { useRecarregarNoFoco } from '@/hooks/useRecarregarNoFoco';
 import { cores } from '@/theme';
@@ -26,9 +29,11 @@ export default function Exercicios() {
   const [busca, setBusca] = useState('');
   // Chave normalizada do grupo (sem caixa nem acento), não o texto exibido.
   const [grupo, setGrupo] = useState<string | null>(null);
+  const [origem, setOrigem] = useState<OrigemExercicio | null>(null);
+  const professorId = useProfessorId();
 
   const { exercicios, pagina, total, totalPaginas, carregando, erro, recarregar } =
-    useExercicios(paginaSolicitada);
+    useExercicios(paginaSolicitada, origem);
 
   useRecarregarNoFoco(recarregar);
   const { atualizando, aoAtualizar } = usePuxarParaAtualizar(recarregar);
@@ -55,6 +60,39 @@ export default function Exercicios() {
         onChangeText={setBusca}
         autoCorrect={false}
       />
+
+      <View style={estilos.origens} accessibilityRole="radiogroup" accessibilityLabel="Origem dos exercícios">
+        <Chip
+          rotulo="Todos"
+          papel="radio"
+          selecionado={origem === null}
+          onPress={() => {
+            setOrigem(null);
+            setPaginaSolicitada(1);
+          }}
+          testID="origem-todos"
+        />
+        <Chip
+          rotulo="Biblioteca"
+          papel="radio"
+          selecionado={origem === 'biblioteca'}
+          onPress={() => {
+            setOrigem('biblioteca');
+            setPaginaSolicitada(1);
+          }}
+          testID="origem-biblioteca"
+        />
+        <Chip
+          rotulo="Meus exercícios"
+          papel="radio"
+          selecionado={origem === 'meus'}
+          onPress={() => {
+            setOrigem('meus');
+            setPaginaSolicitada(1);
+          }}
+          testID="origem-meus"
+        />
+      </View>
 
       {grupos.length > 1 ? (
         <ScrollView
@@ -140,6 +178,8 @@ export default function Exercicios() {
         renderItem={({ item: exercicio }) => (
           <CardExercicio
             exercicio={exercicio}
+            podeEditar={podeEditarExercicio(exercicio, professorId)}
+            origem={rotuloOrigemExercicio(exercicio, professorId)}
             onPress={() =>
               router.push({
                 pathname: '/exercicios/[id]',
@@ -163,6 +203,7 @@ export default function Exercicios() {
 
 const estilos = StyleSheet.create({
   raiz: { flex: 1 },
+  origens: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16, marginTop: -4 },
   faixaChips: { flexGrow: 0, marginBottom: 20, marginTop: -4 },
   chips: { gap: 8 },
   paginacao: {

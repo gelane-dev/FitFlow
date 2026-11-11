@@ -1,10 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { router, useLocalSearchParams } from 'expo-router';
 
 import { CardTreino } from '@/components/CardTreino';
+import { DialogoDuplicarFicha } from '@/components/professor/DialogoDuplicarFicha';
 import { SeloVigente } from '@/components/SeloVigente';
+import { Selo } from '@/components/ui/Selo';
 import { Avatar } from '@/components/ui/Avatar';
 import { BlocoEstatistica } from '@/components/ui/BlocoEstatistica';
 import { Botao } from '@/components/ui/Botao';
@@ -19,6 +22,7 @@ import { TituloSecao } from '@/components/ui/TituloSecao';
 import { useFicha } from '@/hooks/useFicha';
 import { useGerenciarFicha } from '@/hooks/useGerenciarFicha';
 import { useGerenciarTreino } from '@/hooks/useGerenciarTreino';
+import { useProfessorFichaAcoes } from '@/hooks/useProfessorFichaAcoes';
 import { usePuxarParaAtualizar } from '@/hooks/usePuxarParaAtualizar';
 import { useRecarregarNoFoco } from '@/hooks/useRecarregarNoFoco';
 import { useTreinos } from '@/hooks/useTreinos';
@@ -45,6 +49,8 @@ export default function DetalheFicha() {
     recarregar: recarregarTreinos,
   } = useTreinos(idFicha);
 
+  const [duplicando, setDuplicando] = useState(false);
+  const acoes = useProfessorFichaAcoes();
   const { deletar: deletarTreino } = useGerenciarTreino();
   const { deletar: deletarFicha, carregando: excluindoFicha } = useGerenciarFicha();
 
@@ -91,6 +97,40 @@ export default function DetalheFicha() {
 
             if (sucesso) {
               router.replace('/fichas');
+            }
+          },
+        },
+      ]
+    );
+  }
+
+  async function duplicar(_ficha: { id: number }, dados: { aluno_id?: number; nome?: string }) {
+    const nova = await acoes.duplicar(idFicha, dados);
+
+    if (nova) {
+      setDuplicando(false);
+      router.push({ pathname: '/fichas/[id]/montar' as any, params: { id: nova.id.toString() } });
+    }
+  }
+
+  function confirmarPublicacao() {
+    if (!ficha) return;
+
+    mostrarAlerta(
+      'Publicar ficha',
+      `${ficha.aluno_nome} passará a ver "${ficha.nome}". Será criada uma nova versão no histórico.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Publicar',
+          onPress: async () => {
+            const resultado = await acoes.publicar(idFicha);
+
+            if (resultado.ok) {
+              await recarregarFicha();
+              mostrarAlerta('Ficha publicada', `Versão ${resultado.valor.numero} criada.`);
+            } else {
+              mostrarAlerta('Erro', resultado.erro);
             }
           },
         },
@@ -151,9 +191,10 @@ export default function DetalheFicha() {
           </Text>
         </View>
 
-        {ficha.vigente || vigencia !== '' ? (
+        {ficha.vigente || ficha.status === 'rascunho' || vigencia !== '' ? (
           <View style={estilos.vigencia}>
-            {ficha.vigente ? <SeloVigente /> : null}
+            {ficha.status === 'rascunho' ? <Selo rotulo="Rascunho" tom="aviso" /> : null}
+            {ficha.vigente && ficha.status !== 'rascunho' ? <SeloVigente /> : null}
             {vigencia !== '' ? (
               <Text style={estilos.textoVigencia}>{vigencia}</Text>
             ) : null}
@@ -164,6 +205,64 @@ export default function DetalheFicha() {
           <BlocoEstatistica valor={treinos.length} rotulo="Treinos" destaque />
         </View>
       </Cartao>
+
+      {ficha.objetivo ? <Text style={estilos.objetivo}>Objetivo: {ficha.objetivo}</Text> : null}
+
+      <TituloSecao titulo="Montador e versões" />
+      <View style={estilos.acoes}>
+        <View style={estilos.acao}>
+          <Botao
+            icone="construct-outline"
+            tamanho="medio"
+            onPress={() =>
+              router.push({ pathname: '/fichas/[id]/montar' as any, params: { id: idFicha.toString() } })
+            }
+            testID="ficha-montador"
+          >
+            Abrir no montador
+          </Botao>
+        </View>
+        <View style={estilos.acao}>
+          <Botao
+            icone="time-outline"
+            tamanho="medio"
+            variante="secundario"
+            onPress={() =>
+              router.push({ pathname: '/fichas/[id]/versoes' as any, params: { id: idFicha.toString() } })
+            }
+            testID="ficha-versoes"
+          >
+            Versões
+          </Botao>
+        </View>
+        <View style={estilos.acao}>
+          <Botao
+            icone="copy-outline"
+            tamanho="medio"
+            variante="secundario"
+            onPress={() => {
+              acoes.limparErro();
+              setDuplicando(true);
+            }}
+            testID="ficha-duplicar"
+          >
+            Duplicar
+          </Botao>
+        </View>
+        {ficha.status === 'rascunho' ? (
+          <View style={estilos.acao}>
+            <Botao
+              icone="rocket-outline"
+              tamanho="medio"
+              onPress={confirmarPublicacao}
+              carregando={acoes.carregando}
+              testID="ficha-publicar"
+            >
+              Publicar
+            </Botao>
+          </View>
+        ) : null}
+      </View>
 
       <TituloSecao titulo="Treinos" />
       <Botao
@@ -212,7 +311,7 @@ export default function DetalheFicha() {
                   id: idFicha.toString(),
                   treinoId: treino.id.toString(),
                   nome: treino.nome,
-                  dia: treino.dia_semana,
+                  dia: treino.dia_semana ?? '',
                   ordem: treino.ordem.toString(),
                 },
               })
@@ -232,11 +331,21 @@ export default function DetalheFicha() {
       >
         EXCLUIR FICHA
       </Botao>
+      <DialogoDuplicarFicha
+        ficha={duplicando ? ficha : null}
+        salvando={acoes.carregando}
+        erro={acoes.erro}
+        aoFechar={() => setDuplicando(false)}
+        aoConfirmar={duplicar}
+      />
     </Tela>
   );
 }
 
 const estilos = StyleSheet.create({
+  objetivo: { color: cores.textoSecundario, fontSize: 14, marginTop: 12 },
+  acoes: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  acao: { flexGrow: 1, flexBasis: 150 },
   espaco: { height: 16 },
   titulo: { ...tipografia.subtitulo, color: cores.texto, letterSpacing: 0.5 },
   aluno: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14 },

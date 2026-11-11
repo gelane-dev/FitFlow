@@ -11,6 +11,7 @@ import { SkeletonLista } from '@/components/ui/Skeleton';
 import { Tela } from '@/components/ui/Tela';
 import { useMinhasFichaCompleta } from '@/hooks/useMinhasFichaCompleta';
 import { cores, fonteDisplay } from '@/theme';
+import { ROTULO_SEM_DIA_FIXO } from '@/utils/diasSemana';
 import { estimarDuracaoMin } from '@/utils/painelAluno';
 import { descreverTreino } from '@/utils/pluralizacao';
 import { rotaPreviaTreino } from '@/utils/rotas';
@@ -44,7 +45,7 @@ export default function FichaAluno() {
               <View key={treino.id} style={estilos.treino}>
                 <View style={estilos.cabecalhoTreino}>
                   <Text style={estilos.treinoTitulo}>{treino.nome}</Text>
-                  <Selo rotulo={treino.dia_semana} tom="primario" />
+                  <Selo rotulo={treino.dia_semana ?? ROTULO_SEM_DIA_FIXO} tom="primario" />
                 </View>
                 <Text style={estilos.treinoMeta}>{descreverTreino(treino.itens.length, duracao)}</Text>
 

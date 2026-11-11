@@ -12,6 +12,8 @@ interface CamposVigenciaProps {
   onChangeFim: (valor: string) => void;
   erroInicio?: string;
   erroFim?: string;
+  /** Início e fim lado a lado (telas largas). */
+  emColunas?: boolean;
 }
 
 /** Erros de vigência vindos de `validarFicha`. */
@@ -26,9 +28,10 @@ export function CamposVigencia({
   onChangeFim,
   erroInicio,
   erroFim,
+  emColunas = false,
 }: CamposVigenciaProps) {
   return (
-    <View style={estilos.linha}>
+    <View style={[estilos.linha, emColunas && estilos.emColunas]}>
       <View style={estilos.coluna}>
         <CampoTexto
           rotulo="Início (opcional)"
@@ -60,5 +63,6 @@ export function CamposVigencia({
 
 const estilos = StyleSheet.create({
   linha: { gap: 0 },
+  emColunas: { flexDirection: 'row', gap: 12 },
   coluna: { flex: 1 },
 });

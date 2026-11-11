@@ -34,6 +34,7 @@ import {
   diasDaSemana,
   estimarDuracaoMin,
   formatarVolume,
+  formatarVolumeCompacto,
   proximoTreino,
   sequenciaDias,
   sessaoAberta as buscarSessaoAberta,
@@ -41,26 +42,6 @@ import {
   sessoesDoMes,
   volumeDasSessoes,
 } from '@/utils/painelAluno';
-
-function PainelAdmin() {
-  const { usuario, sair } = useAuth();
-
-  return (
-    <Tela abas>
-      <CabecalhoGrande rotulo="Administração" titulo="Painel" />
-      <EstadoVazio
-        icone="shield-checkmark-outline"
-        titulo={`Olá, ${usuario?.email ?? ''}`}
-        descricao="O painel de administração não existe no app."
-        acaoRotulo="Abrir perfil"
-        aoAcionar={() => router.navigate('/perfil')}
-      />
-      <Botao variante="secundario" onPress={sair} testID="botao-sair-admin">
-        Sair
-      </Botao>
-    </Tela>
-  );
-}
 
 function SkeletonInicio() {
   return (
@@ -187,7 +168,8 @@ function PainelAluno() {
           <Cartao style={estilos.estatisticas}>
             <BlocoEstatistica valor={finalizadasMes.length} rotulo="Treinos" destaque />
             <BlocoEstatistica
-              valor={formatarVolume(volume)}
+              valor={formatarVolumeCompacto(volume)}
+              valorCompleto={formatarVolume(volume)}
               unidade="kg"
               rotulo="Volume"
             />
@@ -224,9 +206,7 @@ function PainelAluno() {
 }
 
 export default function HomeAluno() {
-  const { usuario } = useAuth();
-
-  return usuario?.tipo === 'admin' ? <PainelAdmin /> : <PainelAluno />;
+  return <PainelAluno />;
 }
 
 const estilos = StyleSheet.create({

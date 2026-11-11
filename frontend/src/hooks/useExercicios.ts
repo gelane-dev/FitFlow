@@ -3,9 +3,9 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { buscarExercicios } from '@/services/exercicio.service';
 import { ErroApi } from '@/types/api.types';
-import { Exercicio } from '@/types/exercicio.types';
+import { Exercicio, OrigemExercicio } from '@/types/exercicio.types';
 
-export function useExercicios(paginaSolicitada: number) {
+export function useExercicios(paginaSolicitada: number, origem?: OrigemExercicio | null) {
   const [exercicios, setExercicios] = useState<Exercicio[]>([]);
   const [pagina, setPagina] = useState(1);
   const [limite, setLimite] = useState(50);
@@ -20,7 +20,7 @@ export function useExercicios(paginaSolicitada: number) {
         setCarregando(true);
         setErro(null);
 
-        const dados = await buscarExercicios(paginaSolicitada);
+        const dados = await buscarExercicios(paginaSolicitada, origem ? { origem } : undefined);
 
         
         setExercicios(dados.itens);
@@ -43,7 +43,7 @@ export function useExercicios(paginaSolicitada: number) {
         setCarregando(false);
       }
     }
-  }, [paginaSolicitada]);
+  }, [paginaSolicitada, origem]);
 
   useEffect(() => {
     carregarExercicios();

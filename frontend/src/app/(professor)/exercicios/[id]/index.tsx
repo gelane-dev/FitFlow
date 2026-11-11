@@ -17,6 +17,8 @@ import { TituloSecao } from '@/components/ui/TituloSecao';
 import { useExercicio } from '@/hooks/useExercicio';
 import { useGerenciarExercicio } from '@/hooks/useGerenciarExercicio';
 import { useImagemExercicio } from '@/hooks/useImagemExercicio';
+import { useProfessorId } from '@/hooks/useProfessorId';
+import { podeEditarExercicio, rotuloOrigemExercicio } from '@/utils/professorWeb';
 import { useRecarregarNoFoco } from '@/hooks/useRecarregarNoFoco';
 import { useVideoExercicio } from '@/hooks/useVideoExercicio';
 import { cores, tipografia } from '@/theme';
@@ -31,6 +33,8 @@ export default function DetalhesExercicio() {
   const { deletar, carregando: excluindo, erro: erroExclusao } = useGerenciarExercicio();
   const { enviarImagem, carregando: enviandoImagem, erro: erroImagem } = useImagemExercicio();
   const { enviarVideo, carregando: enviandoVideo, erro: erroVideo } = useVideoExercicio();
+
+  const professorId = useProfessorId();
 
   useRecarregarNoFoco(recarregar);
 
@@ -95,28 +99,33 @@ export default function DetalhesExercicio() {
     );
   }
 
+  const editavel = podeEditarExercicio(exercicio, professorId);
   const bloqueado = excluindo || enviandoImagem || enviandoVideo;
   const videoNoTopo = !exercicio.imagem && Boolean(exercicio.video);
 
   return (
     <Tela
       rodape={
-        <Botao icone="create-outline" onPress={editar} disabled={bloqueado}>
-          EDITAR EXERCÍCIO
-        </Botao>
+        editavel ? (
+          <Botao icone="create-outline" onPress={editar} disabled={bloqueado}>
+            EDITAR EXERCÍCIO
+          </Botao>
+        ) : undefined
       }
     >
       <CabecalhoDetalhe
         titulo="Exercício"
         direita={
-          <Pressionavel
-            onPress={editar}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel="Editar exercício"
-          >
-            <Ionicons name="create-outline" size={22} color={cores.texto} />
-          </Pressionavel>
+          editavel ? (
+            <Pressionavel
+              onPress={editar}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Editar exercício"
+            >
+              <Ionicons name="create-outline" size={22} color={cores.texto} />
+            </Pressionavel>
+          ) : undefined
         }
       />
 
@@ -138,9 +147,24 @@ export default function DetalhesExercicio() {
         </>
       ) : null}
 
+      <Text style={estilos.origem} testID="exercicio-origem">
+        {rotuloOrigemExercicio(exercicio, professorId)}
+      </Text>
+
       <TituloSecao titulo="Descrição" />
       <Text style={estilos.descricao}>{exercicio.descricao}</Text>
 
+      {exercicio.instrucoes ? (
+        <>
+          <TituloSecao titulo="Instruções de execução" />
+          <Text style={estilos.descricao} testID="exercicio-instrucoes-texto">
+            {exercicio.instrucoes}
+          </Text>
+        </>
+      ) : null}
+
+      {editavel ? (
+        <>
       <TituloSecao titulo="Mídia" />
       <View style={estilos.midia}>
         <SeletorMidiaExercicio
@@ -169,6 +193,12 @@ export default function DetalhesExercicio() {
       <Botao variante="perigo" icone="trash-outline" onPress={confirmarExclusao} carregando={excluindo} disabled={bloqueado}>
         EXCLUIR EXERCÍCIO
       </Botao>
+        </>
+      ) : (
+        <Text style={estilos.somenteLeitura} testID="exercicio-somente-leitura">
+          Este exercício foi criado por outro professor: você pode usá-lo nas fichas, mas não editá-lo nem excluí-lo.
+        </Text>
+      )}
     </Tela>
   );
 }
@@ -179,4 +209,6 @@ const estilos = StyleSheet.create({
   chip: { flexDirection: 'row', marginTop: 10 },
   descricao: { ...tipografia.corpo, color: cores.textoSecundario },
   midia: { gap: 10 },
+  origem: { color: cores.textoTerciario, fontSize: 12, marginTop: 10 },
+  somenteLeitura: { color: cores.textoSecundario, fontSize: 13, lineHeight: 19, marginTop: 24 },
 });

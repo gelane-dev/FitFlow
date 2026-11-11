@@ -84,6 +84,25 @@ export function formatarVolume(volume: number): string {
   return String(Math.round(volume)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 }
 
+/**
+ * Volume legível em coluna estreita: abaixo de 10 mil vale o número inteiro ("9.850"); a partir daí
+ * abrevia em milhares com 1 casa ("18,6 mil", 1.250.000 → "1.250 mil"). O valor completo vai no
+ * accessibilityLabel (`formatarVolume`).
+ */
+export function formatarVolumeCompacto(volume: number): string {
+  const inteiro = Math.round(volume);
+
+  if (inteiro < 10000) {
+    return formatarVolume(inteiro);
+  }
+
+  const milhares = Math.round(inteiro / 100) / 10;
+  const [parteInteira, decimal] = milhares.toFixed(1).split('.');
+  const inteiroAgrupado = parteInteira.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
+  return `${decimal === '0' ? inteiroAgrupado : `${inteiroAgrupado},${decimal}`} mil`;
+}
+
 const DIAS_PT = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
 
 /** Nome do dia da semana de `data`, no formato do backend ("terça"). */
@@ -94,8 +113,8 @@ export function nomeDiaSemana(data: Date): string {
 const ORDEM_DIAS = ['segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo'];
 
 /** Quantos dias faltam (1 a 7) da data `hoje` até o dia da semana `dia`; 7 = mesmo dia na semana que vem. */
-export function diasAte(dia: string, hoje: Date): number {
-  const alvo = ORDEM_DIAS.indexOf(dia);
+export function diasAte(dia: string | null | undefined, hoje: Date): number {
+  const alvo = dia ? ORDEM_DIAS.indexOf(dia) : -1;
   const atual = (hoje.getDay() + 6) % 7;
 
   if (alvo < 0) {
@@ -105,8 +124,8 @@ export function diasAte(dia: string, hoje: Date): number {
   return ((alvo - atual + 6) % 7) + 1;
 }
 
-/** Próximo treino da ficha depois de hoje (o de hoje não conta). Sem treinos, null. */
-export function proximoTreino<T extends { dia_semana: string }>(
+/** Próximo treino da ficha depois de hoje (o de hoje não conta). Treino sem dia fixo não entra. Sem treinos, null. */
+export function proximoTreino<T extends { dia_semana: string | null }>(
   treinos: T[],
   hoje: Date
 ): { treino: T; emDias: number } | null {

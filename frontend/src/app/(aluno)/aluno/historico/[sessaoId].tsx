@@ -18,7 +18,7 @@ import {
   totalSeries,
   volumeExecucoes,
 } from '@/utils/historicoAluno';
-import { formatarVolume } from '@/utils/painelAluno';
+import { formatarVolume, formatarVolumeCompacto } from '@/utils/painelAluno';
 import { comUnidade } from '@/utils/pluralizacao';
 import { agruparPorExercicio } from '@/utils/sessao';
 
@@ -51,7 +51,8 @@ export default function DetalheSessao() {
             <BlocoEstatistica valor={formatarDuracao(duracaoSessaoMin(sessao))} rotulo="Duração" destaque />
             <BlocoEstatistica valor={totalSeries(sessao.execucoes)} rotulo="Séries" />
             <BlocoEstatistica
-              valor={formatarVolume(volumeExecucoes(sessao.execucoes))}
+              valor={formatarVolumeCompacto(volumeExecucoes(sessao.execucoes))}
+              valorCompleto={formatarVolume(volumeExecucoes(sessao.execucoes))}
               unidade="kg"
               rotulo="Volume"
             />

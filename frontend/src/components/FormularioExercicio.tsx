@@ -29,6 +29,7 @@ interface FormularioExercicioProps {
     nome: string;
     descricao: string;
     grupo_muscular: string;
+    instrucoes?: string | null;
   };
   salvando: boolean;
   desabilitado?: boolean;
@@ -51,6 +52,7 @@ export function FormularioExercicio({
   const [nome, setNome] = useState(exercicio?.nome ?? '');
   const [descricao, setDescricao] = useState(exercicio?.descricao ?? '');
   const [grupoMuscular, setGrupoMuscular] = useState(exercicio?.grupo_muscular ?? '');
+  const [instrucoes, setInstrucoes] = useState(exercicio?.instrucoes ?? '');
   const { erros, tentar } = useErrosAposTentativa<CampoExercicio>(() =>
     validarExercicio({ nome, descricao, grupo: grupoMuscular })
   );
@@ -64,6 +66,7 @@ export function FormularioExercicio({
       nome: nome.trim(),
       descricao: descricao.trim(),
       grupo_muscular: grupoMuscular.trim(),
+      instrucoes: instrucoes.trim() || null,
     });
   }
 
@@ -95,6 +98,15 @@ export function FormularioExercicio({
         onChangeText={setDescricao}
         multiline
         erro={erros.descricao}
+      />
+
+      <CampoTexto
+        rotulo="Instruções de execução (opcional)"
+        placeholder="Passo a passo, postura, respiração..."
+        value={instrucoes}
+        onChangeText={setInstrucoes}
+        multiline
+        testID="exercicio-instrucoes"
       />
 
       <TituloSecao titulo="Grupo muscular" />

@@ -7,8 +7,9 @@ import { TituloSecao } from '@/components/ui/TituloSecao';
 import { cores, fonteDisplay } from '@/theme';
 import { TreinoAluno } from '@/types/fichaAluno.types';
 import { formatarNumero } from '@/utils/evolucao';
+import { rotuloDiaCompleto } from '@/utils/diasSemana';
 import { estimarDuracaoMin } from '@/utils/painelAluno';
-import { comUnidade, inicialMaiuscula, plural } from '@/utils/pluralizacao';
+import { comUnidade, plural } from '@/utils/pluralizacao';
 
 type PreviaTreinoProps = {
   treino: TreinoAluno;
@@ -27,7 +28,7 @@ export function PreviaTreino({ treino }: PreviaTreinoProps) {
 
   return (
     <View testID="previa-treino">
-      <Text style={estilos.dia}>{inicialMaiuscula(treino.dia_semana)}</Text>
+      <Text style={estilos.dia}>{rotuloDiaCompleto(treino.dia_semana)}</Text>
       <Text style={estilos.titulo}>{treino.nome}</Text>
 
       <Cartao style={estilos.estatisticas}>

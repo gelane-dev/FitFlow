@@ -23,6 +23,7 @@ import {
   montarAvaliacao,
 } from '@/utils/avaliacaoForm';
 import { paramTexto } from '@/utils/params';
+import { ChaveMedida } from '@/utils/professorWeb';
 
 /** Edição de avaliação física (/alunos/[id]/avaliacoes/[avaliacaoId]). */
 export default function EditarAvaliacao() {
@@ -50,8 +51,12 @@ export default function EditarAvaliacao() {
     }
   }, [avaliacao]);
 
-  function alterar(campo: keyof CamposAvaliacao, valor: string) {
+  function alterar(campo: Exclude<keyof CamposAvaliacao, 'medidas'>, valor: string) {
     setCampos((atual) => ({ ...atual, [campo]: valor }));
+  }
+
+  function alterarMedida(medida: ChaveMedida, valor: string) {
+    setCampos((atual) => ({ ...atual, medidas: { ...atual.medidas, [medida]: valor } }));
   }
 
   async function salvar() {
@@ -122,7 +127,12 @@ export default function EditarAvaliacao() {
       }
     >
       <CabecalhoDetalhe titulo="Editar avaliação" />
-      <FormularioAvaliacao campos={campos} onChange={alterar} erros={erros} />
+      <FormularioAvaliacao
+        campos={campos}
+        onChange={alterar}
+        onChangeMedida={alterarMedida}
+        erros={erros}
+      />
 
       <TituloSecao titulo="Zona de risco" />
       <Botao

@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { SeloVigente } from '@/components/SeloVigente';
 import { Avatar } from '@/components/ui/Avatar';
+import { Selo } from '@/components/ui/Selo';
 import { Pressionavel } from '@/components/ui/Pressionavel';
 import { cores, raios } from '@/theme';
 import { FichaLista } from '@/types/ficha.types';
@@ -12,6 +13,7 @@ interface CardFichaProps {
   ficha: FichaLista;
   onPress: () => void;
   onRemover?: () => void;
+  onDuplicar?: () => void;
   mostrarAluno?: boolean;
 }
 
@@ -21,7 +23,7 @@ export function rotuloTreinos(total: number): string {
 }
 
 /** Card de ficha: nome, selo de vigência, aluno (com avatar) e período. */
-export function CardFicha({ ficha, onPress, onRemover, mostrarAluno = true }: CardFichaProps) {
+export function CardFicha({ ficha, onPress, onRemover, onDuplicar, mostrarAluno = true }: CardFichaProps) {
   const vigencia = descreverVigencia(ficha.data_inicio, ficha.data_fim);
 
   return (
@@ -37,7 +39,11 @@ export function CardFicha({ ficha, onPress, onRemover, mostrarAluno = true }: Ca
           <Text style={estilos.nome} numberOfLines={2}>
             {ficha.nome}
           </Text>
-          {ficha.vigente ? <SeloVigente /> : null}
+          {ficha.status === 'rascunho' ? (
+            <Selo rotulo="Rascunho" tom="aviso" />
+          ) : ficha.vigente ? (
+            <SeloVigente />
+          ) : null}
         </View>
 
         {mostrarAluno ? (
@@ -61,6 +67,19 @@ export function CardFicha({ ficha, onPress, onRemover, mostrarAluno = true }: Ca
           <Text style={estilos.textoVigencia}>{rotuloTreinos(ficha.total_treinos)}</Text>
         </View>
       </Pressionavel>
+
+      {onDuplicar ? (
+        <Pressionavel
+          onPress={onDuplicar}
+          hitSlop={8}
+          style={estilos.remover}
+          accessibilityRole="button"
+          accessibilityLabel={`Duplicar ficha ${ficha.nome}`}
+          testID={`ficha-duplicar-${ficha.id}`}
+        >
+          <Ionicons name="copy-outline" size={20} color={cores.textoSecundario} />
+        </Pressionavel>
+      ) : null}
 
       {onRemover ? (
         <Pressionavel

@@ -22,7 +22,8 @@ export interface TreinoAluno {
   id: number;
   ficha_id: number;
   nome: string;
-  dia_semana: DiaSemana;
+  /** `null` na divisão A/B/C sem dia fixo. */
+  dia_semana: DiaSemana | null;
   ordem: number;
   itens: ItemFichaAluno[];
 }
