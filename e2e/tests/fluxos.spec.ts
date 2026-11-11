@@ -1,4 +1,4 @@
-import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
+import { expect, request as playwrightRequest, test, type APIRequestContext, type Page } from '@playwright/test';
 
 // Os cenários formam uma sequência: o E2E-01 cria o aluno que os demais usam.
 test.describe.configure({ mode: 'serial' });
@@ -23,6 +23,14 @@ const professor = () => ({
   email: process.env.E2E_PROFESSOR_EMAIL!,
   senha: process.env.E2E_PROFESSOR_SENHA!,
 });
+const admin = () => ({ email: process.env.E2E_ADMIN_EMAIL!, senha: process.env.E2E_ADMIN_SENHA! });
+const recepcao = () => ({ email: process.env.E2E_RECEPCAO_EMAIL!, senha: process.env.E2E_RECEPCAO_SENHA! });
+
+/** A sessão web é um cookie HttpOnly (ADR-034): para trocar de usuário é preciso limpar os cookies. */
+async function sairDaSessao(page: Page) {
+  await page.context().clearCookies();
+  await page.evaluate(() => localStorage.clear());
+}
 
 // "Hoje" no fuso do servidor (APP_TIMEZONE padrão = America/Sao_Paulo).
 const FUSO = 'America/Sao_Paulo';
@@ -129,7 +137,10 @@ async function irParaAba(page: Page, rotulo: string) {
   await page.getByTestId(`aba-${rotulo}`).filter({ visible: true }).click();
 }
 
-test('E2E-01 aluno se cadastra, faz login e cai em /aluno sem ficha', async ({ page }) => {
+test('E2E-01 aluno se cadastra, vê a aprovação pendente, a recepção aprova e ele entra em /aluno sem ficha', async ({
+  page,
+  request,
+}) => {
   await page.goto('/');
   await page.getByText('Cadastre-se', { exact: true }).filter({ visible: true }).click();
   await expect(page).toHaveURL(/\/cadastro$/);
@@ -145,10 +156,42 @@ test('E2E-01 aluno se cadastra, faz login e cai em /aluno sem ficha', async ({ p
   await page.getByText('CADASTRAR', { exact: true }).filter({ visible: true }).click();
   expect((await resposta).status()).toBe(200);
 
-  await esperarDialogo('Cadastro realizado\n\nSua conta foi criada com sucesso.');
-  // o próprio app volta ao login (router.replace('/'))
+  // Contrato-Gestao: o aluno nasce pendente. O app avisa e volta ao login sem tentar entrar.
+  await esperarDialogo('Cadastro enviado\n\nAguarde a aprovação da recepção.');
+  await expect(page.getByText('ENTRAR', { exact: true }).filter({ visible: true })).toBeVisible();
+  await expect(page).not.toHaveURL(/\/aluno$/);
+
+  // Enquanto pendente, o login é negado (403) com a mensagem da API e o aluno continua no login.
+  const respostaLogin = respostaApi(page, 'POST', /^\/login$/);
+  await login(page, aluno.email, SENHA_ALUNO);
+  expect((await respostaLogin).status()).toBe(403);
+  await esperarDialogo('Erro\n\nCadastro aguardando aprovação da recepção');
   await expect(page.getByText('ENTRAR', { exact: true }).filter({ visible: true })).toBeVisible();
 
+  // A recepção aprova pela tela de alunos (filtro "Pendentes de aprovação").
+  const tokenAdmin = await loginApi(request, admin().email, admin().senha);
+  const idAluno = await idDoAlunoGestao(request, tokenAdmin, aluno.email);
+  await login(page, recepcao().email, recepcao().senha);
+  await expect(page).toHaveURL(/\/recepcao$/);
+  await irParaAba(page, 'Alunos');
+  await expect(page).toHaveURL(/\/recepcao\/alunos$/);
+  await page.getByText('Pendentes de aprovação', { exact: true }).filter({ visible: true }).click();
+  await expect(page.getByText(aluno.nome, { exact: true }).filter({ visible: true })).toBeVisible();
+  const respostaAprovar = respostaApi(page, 'POST', new RegExp(`^/gestao/alunos/${idAluno}/aprovar$`));
+  await page.getByTestId(`aprovar-${idAluno}`).filter({ visible: true }).click();
+  expect((await respostaAprovar).status()).toBe(200);
+  await esperarDialogo(`Aprovar cadastro\n\nAprovar o cadastro de ${aluno.nome}? O aluno poderá entrar no app.`);
+  await expect(page.getByText(aluno.nome, { exact: true }).filter({ visible: true })).toHaveCount(0);
+
+  // O admin vincula o aluno ao professor (os cenários seguintes dependem do vínculo).
+  const vinculo = await chamarApi(request, 'PUT', `/admin/alunos/${idAluno}/professor`, {
+    token: tokenAdmin,
+    dados: { professor_id: await idDoProfessor(request, tokenAdmin) },
+  });
+  expect(vinculo.status).toBe(200);
+
+  // Agora ele entra.
+  await sairDaSessao(page);
   await login(page, aluno.email, SENHA_ALUNO);
   await expect(page).toHaveURL(/\/aluno$/);
   await expect(page.getByText(/^(Bom dia|Boa tarde|Boa noite), Aluno$/).filter({ visible: true })).toBeVisible();
@@ -310,8 +353,7 @@ test('E2E-04 professor vê sessão e evolução do aluno e cria avaliação; alu
   await expect(page.getByText(/72,5 kg · 1,75 m · IMC/).filter({ visible: true })).toBeVisible();
 
   // O aluno vê a avaliação
-  await page.context().clearCookies();
-  await page.evaluate(() => localStorage.clear());
+  await sairDaSessao(page);
   await login(page, aluno.email, SENHA_ALUNO);
   await expect(page).toHaveURL(/\/aluno$/);
   await irParaAba(page, 'Perfil');
@@ -352,11 +394,16 @@ test('E2E-06 sessão: recarregar mantém o login; token inválido volta ao login
   await expect(page.getByText(/^(Bom dia|Boa tarde|Boa noite), Aluno$/).filter({ visible: true })).toBeVisible();
   await expect(page).toHaveURL(/\/aluno$/);
 
-  await page.evaluate(() => localStorage.setItem('access_token', 'token-invalido'));
+  // Na web o token fica no cookie HttpOnly `fitflow_sessao`, nunca em localStorage (ADR-034).
+  const cookies = await page.context().cookies(process.env.E2E_API_URL!);
+  const sessao = cookies.find((c) => c.name === 'fitflow_sessao');
+  expect(sessao?.httpOnly, 'cookie de sessão HttpOnly').toBe(true);
+  expect(await page.evaluate(() => localStorage.getItem('access_token'))).toBeNull();
+
+  await page.context().addCookies([{ ...sessao!, value: 'token-invalido' }]);
   await page.reload();
   await expect(page.getByText('ENTRAR', { exact: true }).filter({ visible: true })).toBeVisible();
   await expect(page.getByPlaceholder('Digite seu e-mail', { exact: true }).filter({ visible: true })).toBeVisible();
-  expect(await page.evaluate(() => localStorage.getItem('access_token'))).toBeNull();
 });
 
 test('E2E-07 perfil: aluno troca o telefone e a mudança persiste', async ({ page }) => {
@@ -377,7 +424,7 @@ test('E2E-07 perfil: aluno troca o telefone e a mudança persiste', async ({ pag
   await expect(page.getByPlaceholder('Telefone', { exact: true }).filter({ visible: true })).toHaveValue(NOVO_TELEFONE);
 
   // persistiu no servidor: o professor enxerga o novo telefone
-  await page.evaluate(() => localStorage.clear());
+  await sairDaSessao(page);
   await login(page, professor().email, professor().senha);
   await irParaAba(page, 'Alunos');
   await expect(page.getByText(NOVO_TELEFONE, { exact: true }).filter({ visible: true })).toBeVisible();
@@ -491,25 +538,73 @@ test('E2E-10 navegação por abas: professor vê o painel, troca de aba e sai do
 // com datas relativas a "hoje" e valores calculados à mão (veja os comentários de cada bloco).
 // ---------------------------------------------------------------------------------------------
 
-type Metodo = 'GET' | 'POST';
+type Metodo = 'GET' | 'POST' | 'PUT';
 async function chamarApi(
   request: APIRequestContext,
   metodo: Metodo,
   caminho: string,
   opcoes: { token?: string; dados?: unknown } = {},
 ) {
-  const r = await request.fetch(`${process.env.E2E_API_URL}${caminho}`, {
-    method: metodo,
-    headers: opcoes.token ? { Authorization: `Bearer ${opcoes.token}` } : undefined,
-    data: opcoes.dados,
-  });
-  const texto = await r.text();
-  return { status: r.status(), corpo: texto ? JSON.parse(texto) : null };
+  // Um contexto novo a cada chamada: `POST /login` grava o cookie `fitflow_sessao` (ADR-034) e o contexto
+  // da fixture `request` o reenviaria sozinho, mascarando os testes de "sem token" e de troca de usuário.
+  void request;
+  const contexto = await playwrightRequest.newContext();
+  try {
+    const r = await contexto.fetch(`${process.env.E2E_API_URL}${caminho}`, {
+      method: metodo,
+      headers: opcoes.token ? { Authorization: `Bearer ${opcoes.token}` } : undefined,
+      data: opcoes.dados,
+    });
+    const texto = await r.text();
+    return { status: r.status(), corpo: texto ? JSON.parse(texto) : null };
+  } finally {
+    await contexto.dispose();
+  }
 }
 async function loginApi(request: APIRequestContext, email: string, senha: string): Promise<string> {
   const r = await chamarApi(request, 'POST', '/login', { dados: { email, senha } });
   expect(r.status, `login de ${email}`).toBe(200);
   return r.corpo.access_token;
+}
+
+/** Cria um aluno já aprovado pelo admin (`POST /gestao/alunos`), opcionalmente vinculado a um professor. */
+async function criarAlunoAprovado(
+  request: APIRequestContext,
+  tokenAdmin: string,
+  dados: { nome: string; email: string },
+  opcoes: { professorId?: number; telefone?: string } = {},
+): Promise<number> {
+  const r = await chamarApi(request, 'POST', '/gestao/alunos', {
+    token: tokenAdmin,
+    dados: {
+      nome: dados.nome,
+      email: dados.email,
+      senha: SENHA_ALUNO,
+      telefone: opcoes.telefone ?? '11933334444',
+      data_nascimento: '1990-01-01',
+      ...(opcoes.professorId ? { professor_id: opcoes.professorId } : {}),
+    },
+  });
+  expect(r.status, `criar aluno ${dados.email}: ${JSON.stringify(r.corpo)}`).toBe(200);
+  return r.corpo.id as number;
+}
+async function idDoProfessor(request: APIRequestContext, tokenAdmin: string): Promise<number> {
+  const r = await chamarApi(request, 'GET', '/admin/professores', { token: tokenAdmin });
+  const prof = (r.corpo as { id: number; email: string }[]).find((p) => p.email === professor().email);
+  expect(prof, 'professor do E2E existe').toBeTruthy();
+  return prof!.id;
+}
+async function idDoAlunoGestao(request: APIRequestContext, tokenAdmin: string, email: string): Promise<number> {
+  const r = await chamarApi(request, 'GET', `/gestao/alunos?busca=${encodeURIComponent(email)}`, { token: tokenAdmin });
+  const item = (r.corpo.itens as { id: number; email: string }[]).find((a) => a.email === email);
+  expect(item, `aluno ${email} na gestão`).toBeTruthy();
+  return item!.id;
+}
+async function idDoPlano(request: APIRequestContext, tokenAdmin: string): Promise<number> {
+  const r = await chamarApi(request, 'GET', '/planos', { token: tokenAdmin });
+  const plano = (r.corpo as { id: number; nome: string }[]).find((p) => p.nome === process.env.E2E_PLANO_NOME);
+  expect(plano, 'plano do E2E existe').toBeTruthy();
+  return plano!.id;
 }
 
 const SUFIXO_EVO = Date.now();
@@ -562,12 +657,10 @@ const idsEvo: { supino: number; remada: number; rosca: number; avaliacoes: numbe
 
 async function semearEvolucao(request: APIRequestContext) {
   const prof = await loginApi(request, professor().email, professor().senha);
-  for (const a of [alunoEvo, alunoVazio]) {
-    const r = await chamarApi(request, 'POST', '/cadastro', {
-      dados: { nome: a.nome, email: a.email, senha: SENHA_ALUNO, telefone: '11933334444', data_nascimento: '1990-01-01' },
-    });
-    expect(r.status).toBe(200);
-  }
+  const tokenAdmin = await loginApi(request, admin().email, admin().senha);
+  const idProf = await idDoProfessor(request, tokenAdmin);
+  await criarAlunoAprovado(request, tokenAdmin, alunoEvo, { professorId: idProf, telefone: '11933334444' });
+  await criarAlunoAprovado(request, tokenAdmin, alunoVazio, { professorId: idProf, telefone: '11933334444' });
   const alunos = (await chamarApi(request, 'GET', '/alunos', { token: prof })).corpo as { id: number; nome: string }[];
   const alunoId = alunos.find((a) => a.nome === alunoEvo.nome)!.id;
 
@@ -1037,7 +1130,7 @@ test('E2E-11 aba Evolução: filtros, gráficos, comparações, avaliações, es
   });
 
   await test.step('UI: aluno sem dados vê os estados vazios', async () => {
-    await page.evaluate(() => localStorage.clear());
+    await sairDaSessao(page);
     await page.goto('/');
     await login(page, alunoVazio.email, SENHA_ALUNO);
     await expect(page).toHaveURL(/\/aluno$/);
@@ -1059,18 +1152,11 @@ test('E2E-11 aba Evolução: filtros, gráficos, comparações, avaliações, es
   // "atual" e "anterior" valem por (data, id) crescente: a de maior id é a mais recente.
   await test.step('UI: duas avaliações no mesmo dia — atual/anterior por (data, id), resumo, comparação e selo coerentes', async () => {
     const alunoMesmoDia = { nome: `Aluno Mesmo Dia ${SUFIXO_EVO}`, email: `aluno.mesmodia.${SUFIXO_EVO}@example.com` };
-    const cadastro = await chamarApi(request, 'POST', '/cadastro', {
-      dados: {
-        nome: alunoMesmoDia.nome,
-        email: alunoMesmoDia.email,
-        senha: SENHA_ALUNO,
-        telefone: '11955556666',
-        data_nascimento: '1990-01-01',
-      },
+    const tokenAdminMd = await loginApi(request, admin().email, admin().senha);
+    const idMesmoDia = await criarAlunoAprovado(request, tokenAdminMd, alunoMesmoDia, {
+      professorId: await idDoProfessor(request, tokenAdminMd),
+      telefone: '11955556666',
     });
-    expect(cadastro.status).toBe(200);
-    const alunos = (await chamarApi(request, 'GET', '/alunos', { token: prof })).corpo as { id: number; nome: string }[];
-    const idMesmoDia = alunos.find((a) => a.nome === alunoMesmoDia.nome)!.id;
 
     // Mesmo instante nas duas (só o id desempata). Altura 1,70 → altura² = 2,89:
     // IMC 70,5 / 2,89 = 24,39 | 71 / 2,89 = 24,57 → +0,18; 0,18 / 24,39 = 0,74% → +0,7%
@@ -1104,7 +1190,7 @@ test('E2E-11 aba Evolução: filtros, gráficos, comparações, avaliações, es
     const lista = await chamarApi(request, 'GET', '/avaliacoes', { token: tokenMesmoDia });
     expect(lista.corpo.map((a: { id: number }) => a.id)).toEqual([idRecente, idAntigo]);
 
-    await page.evaluate(() => localStorage.clear());
+    await sairDaSessao(page);
     await page.goto('/');
     await login(page, alunoMesmoDia.email, SENHA_ALUNO);
     await expect(page).toHaveURL(/\/aluno$/);
@@ -1154,5 +1240,259 @@ test('E2E-11 aba Evolução: filtros, gráficos, comparações, avaliações, es
     await expect(vis(page, `avaliacao-${idAntigo}`)).toContainText('24,39');
   });
 
+  semDialogosPendentes();
+});
+
+// ---------------------------------------------------------------------------------------------
+// GA-10 — gestão da academia: recepção (entrada), montador de fichas e painel do admin.
+// Cada cenário cria os próprios dados pela API (admin) e só depende do ambiente de `preparar.js`
+// (admin, professor, recepcionista com `liberar_acesso_manual` e o plano mensal do E2E).
+// ---------------------------------------------------------------------------------------------
+
+/** Espera um alerta do app que começa com `prefixo` e o consome (devolve a mensagem completa). */
+async function esperarDialogoComecandoCom(prefixo: string): Promise<string> {
+  await expect
+    .poll(() => dialogos.some((m) => m.startsWith(prefixo)), { message: `diálogo "${prefixo}…"` })
+    .toBe(true);
+  const mensagem = dialogos.find((m) => m.startsWith(prefixo))!;
+  dialogos = dialogos.filter((m) => m !== mensagem);
+  return mensagem;
+}
+
+const SUFIXO_GA = Date.now();
+
+/** Campo de texto do design system: o `testID` fica no próprio `<input>` ou no contêiner que o envolve. */
+const entrada = (page: Page, testId: string) =>
+  page.getByTestId(testId).filter({ visible: true }).locator('xpath=self::input | .//input').first();
+
+test('E2E-12 recepção: entrada liberada para aluno com matrícula e bloqueada (com liberação manual) para quem não tem', async ({
+  page,
+  request,
+}) => {
+  const tokenAdmin = await loginApi(request, admin().email, admin().senha);
+  const comMatricula = { nome: `Aluno Entrada Ok ${SUFIXO_GA}`, email: `entrada.ok.${SUFIXO_GA}@example.com` };
+  const semMatricula = { nome: `Aluno Entrada Bloq ${SUFIXO_GA}`, email: `entrada.bloq.${SUFIXO_GA}@example.com` };
+  const idOk = await criarAlunoAprovado(request, tokenAdmin, comMatricula);
+  const idBloq = await criarAlunoAprovado(request, tokenAdmin, semMatricula);
+  const matricula = await chamarApi(request, 'POST', '/matriculas', {
+    token: tokenAdmin,
+    dados: { aluno_id: idOk, plano_id: await idDoPlano(request, tokenAdmin) },
+  });
+  expect(matricula.status).toBe(200);
+
+  await login(page, recepcao().email, recepcao().senha);
+  await expect(page).toHaveURL(/\/recepcao$/);
+  await irParaAba(page, 'Entrada');
+  await expect(page).toHaveURL(/\/recepcao\/entrada$/);
+
+  // --- liberada
+  await entrada(page, 'entrada-busca').fill(comMatricula.nome);
+  await page.getByTestId(`entrada-aluno-${idOk}`).filter({ visible: true }).click();
+  await expect(page.getByTestId('entrada-liberado').filter({ visible: true })).toBeVisible();
+  await expect(page.getByTestId('entrada-veredito').filter({ visible: true })).toHaveText('LIBERADO');
+  await expect(page.getByTestId('entrada-aluno-nome').filter({ visible: true })).toHaveText(comMatricula.nome);
+  await expect(page.getByText(/vence em \d{2}\/\d{2}\/\d{4}/).filter({ visible: true })).toBeVisible();
+  const respostaOk = respostaApi(page, 'POST', /^\/acessos$/);
+  await page.getByTestId('entrada-registrar').filter({ visible: true }).click();
+  expect((await (await respostaOk).json()).resultado).toBe('liberado');
+  await expect(page.getByTestId('entrada-registro').filter({ visible: true })).toContainText('Entrada registrada às');
+
+  // a entrada conta na frequência (admin) e aparece em "Entradas de hoje"
+  const frequencia = await chamarApi(request, 'GET', `/alunos/${idOk}/frequencia`, { token: tokenAdmin });
+  expect(frequencia.status).toBe(200);
+  expect(frequencia.corpo.total_periodo).toBe(1);
+  await expect(page.getByTestId('entradas-hoje').filter({ visible: true })).toContainText(comMatricula.nome);
+
+  // --- bloqueada
+  await page.getByTestId('entrada-proximo').filter({ visible: true }).click();
+  await entrada(page, 'entrada-busca').fill(semMatricula.nome);
+  await page.getByTestId(`entrada-aluno-${idBloq}`).filter({ visible: true }).click();
+  await expect(page.getByTestId('entrada-bloqueado').filter({ visible: true })).toBeVisible();
+  await expect(page.getByTestId('entrada-veredito').filter({ visible: true })).toHaveText('BLOQUEADO');
+  await expect(page.getByTestId('entrada-motivos').filter({ visible: true })).toContainText('Sem matrícula ativa');
+
+  // a tentativa bloqueada fica no histórico, mas não vira frequência
+  const respostaBloq = respostaApi(page, 'POST', /^\/acessos$/);
+  await page.getByTestId('entrada-registrar').filter({ visible: true }).click();
+  expect((await (await respostaBloq).json()).resultado).toBe('bloqueado');
+  await expect(page.getByTestId('entrada-registro').filter({ visible: true })).toContainText(
+    'Tentativa bloqueada registrada às',
+  );
+  const frequenciaBloq = await chamarApi(request, 'GET', `/alunos/${idBloq}/frequencia`, { token: tokenAdmin });
+  expect(frequenciaBloq.corpo.total_periodo).toBe(0);
+
+  // --- liberação manual (a recepcionista do E2E tem `liberar_acesso_manual`)
+  await page.getByTestId('entrada-proximo').filter({ visible: true }).click();
+  await entrada(page, 'entrada-busca').fill(semMatricula.nome);
+  await page.getByTestId(`entrada-aluno-${idBloq}`).filter({ visible: true }).click();
+  await expect(page.getByTestId('entrada-bloqueado').filter({ visible: true })).toBeVisible();
+  const respostaForcada = respostaApi(page, 'POST', /^\/acessos$/);
+  await page.getByTestId('entrada-liberar-mesmo-assim').filter({ visible: true }).click();
+  expect(await esperarDialogoComecandoCom('Liberar mesmo assim')).toContain(semMatricula.nome);
+  const corpoForcado = await (await respostaForcada).json();
+  expect(corpoForcado.resultado).toBe('liberado');
+  expect(corpoForcado.liberacao_manual).toBe(true);
+  await expect(page.getByTestId('entrada-registro').filter({ visible: true })).toContainText('(liberação manual)');
+
+  // a liberação manual aparece na auditoria com o usuário e o horário
+  const auditoria = await chamarApi(request, 'GET', '/admin/auditoria?acao=acesso.liberado_manual&por_pagina=100', {
+    token: tokenAdmin,
+  });
+  const eventos = auditoria.corpo.itens as {
+    entidade_id: number | null;
+    usuario: { tipo: string } | null;
+    data_hora: string;
+    detalhes: unknown;
+  }[];
+  const evento = eventos.find((e) => e.entidade_id === idBloq || JSON.stringify(e.detalhes ?? {}).includes(`${idBloq}`));
+  expect(evento, 'auditoria acesso.liberado_manual').toBeTruthy();
+  expect(evento!.usuario?.tipo).toBe('recepcao');
+  expect(evento!.data_hora).toBeTruthy();
+  semDialogosPendentes();
+});
+
+test('E2E-13 montador de fichas: rascunho fica invisível ao aluno; publicar o torna visível', async ({
+  page,
+  request,
+  browser,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const tokenAdmin = await loginApi(request, admin().email, admin().senha);
+  const tokenProf = await loginApi(request, professor().email, professor().senha);
+  const alunoMont = { nome: `Aluno Montador ${SUFIXO_GA}`, email: `montador.${SUFIXO_GA}@example.com` };
+  const nomeFicha = `Ficha Montador ${SUFIXO_GA}`;
+  const nomeExercicio = `Supino Montador ${SUFIXO_GA}`;
+  await criarAlunoAprovado(request, tokenAdmin, alunoMont, { professorId: await idDoProfessor(request, tokenAdmin) });
+  const exercicio = await chamarApi(request, 'POST', '/exercicios', {
+    token: tokenProf,
+    dados: { nome: nomeExercicio, descricao: 'Supino para o montador', grupo_muscular: 'Peito' },
+  });
+  expect(exercicio.status).toBe(200);
+  const tokenAluno = await loginApi(request, alunoMont.email, SENHA_ALUNO);
+  const fichasDoAluno = async () => {
+    const r = await chamarApi(request, 'GET', '/ficha/aluno', { token: tokenAluno });
+    expect(r.status).toBe(200);
+    return (r.corpo as { nome: string }[]).map((f) => f.nome);
+  };
+  // O aluno consulta o app em outro contexto de navegador (cookie próprio, sem derrubar a sessão do professor).
+  const visaoDoAluno = async () => {
+    const contexto = await browser.newContext({ baseURL: process.env.E2E_WEB_URL, locale: 'pt-BR' });
+    const paginaAluno = await contexto.newPage();
+    await login(paginaAluno, alunoMont.email, SENHA_ALUNO);
+    await expect(paginaAluno).toHaveURL(/\/aluno$/);
+    return { paginaAluno, fechar: () => contexto.close() };
+  };
+
+  // --- monta e salva como rascunho
+  await login(page, professor().email, professor().senha);
+  await expect(page).toHaveURL(/\/painel$/);
+  await page.goto('/fichas/montar');
+  await expect(entrada(page, 'montador-nome')).toBeVisible();
+
+  await page.getByTestId('montador-aluno').filter({ visible: true }).click();
+  await page.getByText(alunoMont.nome, { exact: true }).filter({ visible: true }).last().click();
+  await entrada(page, 'montador-nome').fill(nomeFicha);
+  await entrada(page, 'montador-objetivo').fill('Objetivo E2E');
+  await entrada(page, 'divisao-nome').fill('Treino A E2E');
+  // em tela larga a biblioteca de exercícios fica ao lado do editor
+  await page.getByTestId(`biblioteca-adicionar-${exercicio.corpo.id}`).filter({ visible: true }).click();
+  await expect(page.getByTestId('montador-resumo').filter({ visible: true })).toContainText('1 exercício(s)');
+
+  const respostaFicha = respostaApi(page, 'POST', /^\/ficha\/?$/);
+  await page.getByTestId('montador-salvar').filter({ visible: true }).click();
+  const criada = await respostaFicha;
+  expect(criada.status()).toBe(200);
+  expect((await criada.json()).status).toBe('rascunho');
+  expect(await esperarDialogoComecandoCom('Rascunho salvo')).toContain('O aluno ainda não vê esta ficha');
+  await expect(page).toHaveURL(/\/fichas\/\d+\/montar$/);
+  const idFicha = Number(new URL(page.url()).pathname.split('/')[2]);
+
+  // rascunho: invisível ao aluno (API e interface), listado como rascunho para o professor
+  expect(await fichasDoAluno()).not.toContain(nomeFicha);
+  const rascunhos = await chamarApi(request, 'GET', '/ficha?status=rascunho', { token: tokenProf });
+  expect((rascunhos.corpo as { id: number }[]).map((f) => f.id)).toContain(idFicha);
+  const antes = await visaoDoAluno();
+  await expect(
+    antes.paginaAluno.getByText('Você ainda não tem uma ficha vigente. Fale com seu professor.').filter({ visible: true }),
+  ).toBeVisible();
+  await expect(antes.paginaAluno.getByText(nomeFicha, { exact: true })).toHaveCount(0);
+  await antes.fechar();
+
+  // --- publica: o aluno passa a ver
+  const respostaPublicar = respostaApi(page, 'POST', new RegExp(`^/ficha/${idFicha}/publicar$`));
+  await page.getByTestId('montador-publicar').filter({ visible: true }).click();
+  expect(await esperarDialogoComecandoCom('Publicar ficha')).toContain(nomeFicha);
+  const publicada = await respostaPublicar;
+  expect(publicada.status()).toBe(200);
+  expect((await publicada.json()).numero).toBe(1);
+  expect(await esperarDialogoComecandoCom('Ficha publicada')).toContain('Versão 1 criada');
+  await expect(page).toHaveURL(new RegExp(`/fichas/${idFicha}$`));
+
+  expect(await fichasDoAluno()).toContain(nomeFicha);
+  const versoes = await chamarApi(request, 'GET', `/ficha/${idFicha}/versoes`, { token: tokenProf });
+  expect(versoes.status).toBe(200);
+  expect((versoes.corpo as unknown[]).length).toBe(1);
+  const depois = await visaoDoAluno();
+  await expect(depois.paginaAluno.getByText(nomeFicha, { exact: true }).filter({ visible: true }).first()).toBeVisible();
+  await depois.fechar();
+  semDialogosPendentes();
+});
+
+test('E2E-14 painel do admin: indicadores refletem cadastro pendente e matrícula vencida; navegação pela barra lateral', async ({
+  page,
+  request,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const tokenAdmin = await loginApi(request, admin().email, admin().senha);
+  const painel = async () => (await chamarApi(request, 'GET', '/admin/dashboard', { token: tokenAdmin })).corpo.totais as Record<string, number>;
+  const antes = await painel();
+
+  // um cadastro público (nasce pendente) e um aluno com matrícula vencida (plano de 30 dias iniciado 30 dias atrás)
+  const pendente = { nome: `Aluno Pendente ${SUFIXO_GA}`, email: `painel.pendente.${SUFIXO_GA}@example.com` };
+  const vencido = { nome: `Aluno Vencido ${SUFIXO_GA}`, email: `painel.vencido.${SUFIXO_GA}@example.com` };
+  const cadastro = await chamarApi(request, 'POST', '/cadastro', {
+    dados: { nome: pendente.nome, email: pendente.email, senha: SENHA_ALUNO, telefone: '11944445555', data_nascimento: '1992-02-02' },
+  });
+  expect(cadastro.status).toBe(200);
+  const idVencido = await criarAlunoAprovado(request, tokenAdmin, vencido);
+  const matricula = await chamarApi(request, 'POST', '/matriculas', {
+    token: tokenAdmin,
+    dados: { aluno_id: idVencido, plano_id: await idDoPlano(request, tokenAdmin), data_inicio: hojeIso(-30) },
+  });
+  expect(matricula.status).toBe(200);
+  const depois = await painel();
+  expect(depois.alunos).toBe(antes.alunos + 2);
+  expect(depois.pendentes).toBe(antes.pendentes + 1);
+  expect(depois.vencidos).toBe(antes.vencidos + 1);
+
+  await login(page, admin().email, admin().senha);
+  await expect(page).toHaveURL(/\/admin$/);
+  await expect(page.getByTestId('painel-admin').filter({ visible: true })).toBeVisible();
+  await expect(page.getByTestId('barra-lateral').filter({ visible: true })).toBeVisible();
+
+  // os indicadores da tela batem com a API (mesma fonte, números do momento)
+  const kpi = (chave: string) => page.getByTestId(`kpi-${chave}`).filter({ visible: true });
+  await expect(kpi('alunos')).toContainText(String(depois.alunos));
+  await expect(kpi('pendentes')).toContainText(String(depois.pendentes));
+  await expect(kpi('vencidos')).toContainText(String(depois.vencidos));
+  await expect(kpi('inadimplentes')).toContainText(String(depois.inadimplentes));
+  await expect(kpi('professores')).toContainText(String(depois.professores));
+  await expect(kpi('recepcionistas')).toContainText(String(depois.recepcionistas));
+  for (const grafico of ['grafico-cadastros', 'grafico-entradas', 'grafico-ativos-inativos', 'grafico-por-plano', 'grafico-por-professor']) {
+    await expect(page.getByTestId(grafico).filter({ visible: true })).toBeVisible();
+  }
+  // sem rolagem horizontal
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+  // navegação pela barra lateral: cada destino abre a sua tela
+  await irParaAba(page, 'Alunos');
+  await expect(page).toHaveURL(/\/admin\/alunos$/);
+  await expect(page.getByText(vencido.nome, { exact: false }).filter({ visible: true }).first()).toBeVisible();
+  await irParaAba(page, 'Equipe');
+  await expect(page).toHaveURL(/\/admin\/professores$/);
+  await irParaAba(page, 'Financeiro');
+  await expect(page).toHaveURL(/\/admin\/financeiro$/);
+  await irParaAba(page, 'Painel');
+  await expect(page).toHaveURL(/\/admin$/);
   semDialogosPendentes();
 });

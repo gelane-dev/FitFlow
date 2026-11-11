@@ -25,6 +25,15 @@ const PROFESSOR = {
   telefone: '11911110000',
 };
 
+// Recepção e plano criados pelo admin na preparação (cenários E2E-01 e E2E-12+).
+const RECEPCAO = {
+  email: 'recepcao.e2e@example.com',
+  senha: 'Recep@12345',
+  nome: 'Recepção E2E',
+  telefone: '11900001111',
+};
+const PLANO = { nome: 'Plano E2E Mensal', duracao_dias: 30, valor: '99.90', periodicidade: 'mensal' };
+
 const processos = [];
 
 function log(msg) {
@@ -103,11 +112,13 @@ async function preparar() {
     ...process.env,
     DATABASE_URL: `sqlite:///${caminhoDb.replace(/\\/g, '/')}`,
     SECRET_KEY,
-    CORS_ORIGINS: '*',
+    // Cookie de sessão (ADR-034): com credenciais o CORS precisa listar a origem do app web
+    // (o modo '*' não permite `allow_credentials`).
+    CORS_ORIGINS: webUrl,
     PYTHONUTF8: '1',
   };
 
-  const ambiente = { tmp, apiUrl, webUrl, caminhoDb, admin: ADMIN, professor: PROFESSOR };
+  const ambiente = { tmp, apiUrl, webUrl, caminhoDb, admin: ADMIN, professor: PROFESSOR, recepcao: RECEPCAO, plano: PLANO };
   ambiente.encerrar = async () => {
     processos.forEach(matar);
     processos.length = 0;
@@ -160,6 +171,27 @@ async function preparar() {
     });
     if (!rp.ok) throw new Error(`criar professor falhou: ${rp.status} ${await rp.text()}`);
 
+    log(`criando recepcionista ${RECEPCAO.email} e plano "${PLANO.nome}"`);
+    const cabecalho = { 'Content-Type': 'application/json', Authorization: `Bearer ${access_token}` };
+    const rr = await fetch(`${apiUrl}/admin/recepcionistas`, {
+      method: 'POST',
+      headers: cabecalho,
+      body: JSON.stringify({
+        email: RECEPCAO.email,
+        senha: RECEPCAO.senha,
+        nome: RECEPCAO.nome,
+        telefone: RECEPCAO.telefone,
+        // padrão do contrato + liberação manual para o cenário de entrada bloqueada
+        permissoes: [
+          'cadastrar_aluno', 'editar_aluno', 'aprovar_aluno', 'matricular', 'renovar_matricula',
+          'registrar_pagamento', 'registrar_acesso', 'liberar_acesso_manual',
+        ],
+      }),
+    });
+    if (!rr.ok) throw new Error(`criar recepcionista falhou: ${rr.status} ${await rr.text()}`);
+    const rpl = await fetch(`${apiUrl}/admin/planos`, { method: 'POST', headers: cabecalho, body: JSON.stringify(PLANO) });
+    if (!rpl.ok) throw new Error(`criar plano falhou: ${rpl.status} ${await rpl.text()}`);
+
     if (process.env.E2E_WEB_DIR) {
       log(`reutilizando build web de ${dirWeb} (E2E_WEB_DIR)`);
     } else {
@@ -196,7 +228,7 @@ async function preparar() {
   return ambiente;
 }
 
-module.exports = { preparar, ADMIN, PROFESSOR };
+module.exports = { preparar, ADMIN, PROFESSOR, RECEPCAO, PLANO };
 
 if (require.main === module) {
   preparar().then(
