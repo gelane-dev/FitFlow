@@ -11,7 +11,7 @@ from sqlalchemy import event, select
 from sqlalchemy.orm import Session
 
 from app.core.seguranca import ALGORITHM
-from app.core.tempo import agora
+from app.core.tempo import agora, agora_naive
 from app.core.validacao import normalizar_cpf
 from app.models import Acesso, Aluno, Auditoria, Ficha, FichaVersao, Matricula, Professor, User
 from app.services import equipe as servico_equipe
@@ -327,11 +327,11 @@ def test_pago_em_futuro_422(client, db, recepcao):
     pagamento = criar_pagamento(db, criar_aluno(db, "Futuro"), "10.00")
     url = f"/pagamentos/{pagamento.id}/registrar"
 
-    amanha = (datetime.now() + timedelta(days=1)).isoformat()
+    amanha = (agora_naive() + timedelta(days=1)).isoformat()
     r = client.post(url, json={"forma": "pix", "pago_em": amanha}, headers=recepcao)
     assert r.status_code == 422 and "Data do pagamento não pode ser futura" in r.text
 
-    ontem = (datetime.now() - timedelta(days=1)).isoformat()
+    ontem = (agora_naive() - timedelta(days=1)).isoformat()
     assert client.post(url, json={"forma": "pix", "pago_em": ontem}, headers=recepcao).status_code == 200
 
 
@@ -372,7 +372,7 @@ def test_versoes_trazem_autores_em_lote(client, db, admin_headers, professor_hea
 def test_listar_acessos_traz_motivos_detalhados(client, db, recepcao):
     aluno = criar_aluno(db, "Detalhe", restricao="Débito antigo")
     criar_matricula(db, aluno, criar_plano(db), inicio=dias(-40)).data_vencimento = dias(-2)
-    db.add(Acesso(aluno_id=aluno.id, data_hora=datetime.now(), resultado="bloqueado",
+    db.add(Acesso(aluno_id=aluno.id, data_hora=agora_naive(), resultado="bloqueado",
                   motivos=["restricao", "matricula_vencida"], origem="manual",
                   registrado_por_user_id=aluno.user_id))
     db.commit()

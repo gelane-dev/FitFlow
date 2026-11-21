@@ -1,4 +1,4 @@
-from datetime import datetime
+from app.core.tempo import agora_naive
 
 import pytest
 from sqlalchemy import text
@@ -72,7 +72,7 @@ def test_fluxo_completo(client, db, admin_headers, ids_divergentes):
 
     # aluno registra execução e lê progresso
     r = client.post("/ficha/treino", json={
-        "item_ficha_id": item_id, "data_execucao": datetime.now().isoformat(),
+        "item_ficha_id": item_id, "data_execucao": agora_naive().isoformat(),
         "series_realizadas": 3, "repeticoes_realizadas": 10, "carga_utilizada": 20.0, "observacao": None,
     }, headers=aluno_h)
     assert r.status_code == 200, r.text
