@@ -71,8 +71,8 @@ function Sidebar({ state, navigation, abas }: PropsBarra & { abas: Record<string
       accessibilityRole="tablist"
     >
       <View style={estilos.marca}>
-        <Image source={require('@/assets/images/branding/brasao.png')} style={estilos.brasao} />
-        <Text style={estilos.nomeMarca}>TEAM FITNESS</Text>
+        <Image source={require('@/assets/images/branding/logo-fitflow.png')} style={estilos.logo} />
+        <Text style={estilos.nomeMarca}>FITFLOW</Text>
       </View>
 
       <View style={estilos.itens}>
@@ -213,7 +213,7 @@ const estilos = StyleSheet.create({
     paddingHorizontal: 12,
   },
   marca: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 8, marginBottom: 28 },
-  brasao: { width: 40, height: 40 },
+  logo: { width: 40, height: 40 },
   nomeMarca: { color: cores.primaria, fontFamily: fonteDisplay, fontSize: 15, letterSpacing: 1 },
   itens: { flex: 1, gap: 4 },
   item: {

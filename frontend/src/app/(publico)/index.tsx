@@ -56,10 +56,10 @@ export default function Login() {
         >
           <View style={estilos.marca}>
             <Image
-              source={require('@/assets/images/branding/brasao.png')}
-              style={estilos.brasao}
+              source={require('@/assets/images/branding/logo-fitflow.png')}
+              style={estilos.logo}
             />
-            <Text style={estilos.titulo}>TEAM FITNESS</Text>
+            <Text style={estilos.titulo}>FITFLOW</Text>
             <Text style={estilos.subtitulo}>Seu treino, sua evolução.</Text>
           </View>
 
@@ -124,7 +124,7 @@ const estilos = StyleSheet.create({
     alignSelf: 'center',
   },
   marca: { alignItems: 'center', gap: 8 },
-  brasao: { width: 96, height: 96 },
+  logo: { width: 96, height: 96 },
   titulo: {
     color: cores.primaria,
     fontFamily: fonteDisplay,
